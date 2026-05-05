@@ -8,7 +8,7 @@ create table if not exists public.tasks (
   task_time time not null,
   person text,
   category text not null check (category in ('work', 'personal', 'study', 'health', 'other')),
-  reminder_minutes_before int not null default 15,
+  reminder_minutes_before int not null default 30,
   original_transcript text,
   status text not null default 'pending' check (status in ('pending', 'done')),
   created_at timestamptz not null default now()

@@ -6,9 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 import type { ParsedTask, TaskCategory } from "@/lib/types";
 
 function normalizeReminder(value: FormDataEntryValue | null) {
-  const parsed = Number(value ?? 15);
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return 30;
+  }
+
+  const parsed = Number(raw);
   if (!Number.isFinite(parsed)) {
-    return 15;
+    return 30;
   }
 
   return Math.max(0, Math.min(1440, Math.round(parsed)));

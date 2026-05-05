@@ -25,6 +25,10 @@ function displayCategory(category: string) {
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
+function displayReminder(value: number | undefined) {
+  return value && value > 0 ? value : 30;
+}
+
 function readPendingTask() {
   if (typeof window === "undefined") {
     return null;
@@ -296,7 +300,9 @@ export function NewTaskFlow() {
                     type="number"
                     min={0}
                     max={1440}
-                    defaultValue={pending.task.reminderMinutesBefore}
+                    defaultValue={displayReminder(
+                      pending.task.reminderMinutesBefore,
+                    )}
                     className="min-w-0 bg-transparent text-base font-semibold text-white outline-none"
                   />
                 ) : (
@@ -304,10 +310,10 @@ export function NewTaskFlow() {
                     <input
                       type="hidden"
                       name="reminderMinutesBefore"
-                      value={pending.task.reminderMinutesBefore}
+                      value={displayReminder(pending.task.reminderMinutesBefore)}
                     />
                     <span className="text-base font-semibold text-white">
-                      {pending.task.reminderMinutesBefore} min before
+                      {displayReminder(pending.task.reminderMinutesBefore)} min before
                     </span>
                   </>
                 )}

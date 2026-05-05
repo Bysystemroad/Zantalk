@@ -128,7 +128,7 @@ export default function LandingPage() {
                       Work
                     </span>
                     <span className="rounded-[8px] bg-white/[0.05] px-3 py-2 text-slate-300">
-                      15 min
+                      30 min
                     </span>
                   </div>
                 </div>

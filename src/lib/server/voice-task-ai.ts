@@ -33,6 +33,8 @@ type ChronoDateTime = {
   matchedText: string;
 };
 
+const DEFAULT_REMINDER_MINUTES = 30;
+
 const berlinDateFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Berlin",
   year: "numeric",
@@ -122,20 +124,35 @@ function titleFromTranscript(transcript: string, chronoMatch: string) {
   return title || transcript.trim() || "Untitled task";
 }
 
+function explicitlyAllowsZeroReminder(transcript: string) {
+  return /\b(no reminder|without reminder|zero minute|zero minutes|0 minute|0 minutes|reminder zero|reminder 0|no notification|without notification|hatirlatma yok|bildirim yok|nessun promemoria|senza promemoria|nessuna notifica)\b/i.test(
+    transcript,
+  );
+}
+
 export function getOpenAIKeyError() {
   return process.env.OPENAI_API_KEY ? null : "Missing OpenAI API key";
 }
 
-export function normalizeParsedTask(task: ParsedTask): ParsedTask {
+export function normalizeParsedTask(
+  task: ParsedTask,
+  options: { allowZeroReminder?: boolean } = {},
+): ParsedTask {
+  const reminder = Number.isFinite(task.reminderMinutesBefore)
+    ? Math.round(task.reminderMinutesBefore)
+    : DEFAULT_REMINDER_MINUTES;
+  const normalizedReminder =
+    reminder === 0 && options.allowZeroReminder
+      ? 0
+      : Math.max(1, Math.min(1440, reminder || DEFAULT_REMINDER_MINUTES));
+
   return {
     title: task.title?.trim() || "Untitled task",
     date: /^\d{4}-\d{2}-\d{2}$/.test(task.date) ? task.date : todayInBerlin(),
     time: /^\d{2}:\d{2}$/.test(task.time) ? task.time : "10:00",
     person: task.person?.trim() || "",
     category: task.category || "other",
-    reminderMinutesBefore: Number.isFinite(task.reminderMinutesBefore)
-      ? Math.max(0, Math.min(1440, Math.round(task.reminderMinutesBefore)))
-      : 15,
+    reminderMinutesBefore: normalizedReminder,
   };
 }
 
@@ -172,6 +189,7 @@ export async function parseTaskTranscript(transcript: string) {
   }
 
   const chronoDateTime = parseChronoDateTime(cleanTranscript);
+  const allowZeroReminder = explicitlyAllowsZeroReminder(cleanTranscript);
   const openai = getOpenAIClient();
   try {
     const response = await openai.responses.create({
@@ -180,7 +198,7 @@ export async function parseTaskTranscript(transcript: string) {
         {
           role: "system",
           content:
-            "You parse spoken reminders into task JSON. Support English, Turkish, and Italian. Default missing date to the supplied today value. Default missing time to 10:00. Use Europe/Berlin for relative dates. Return only schema-valid JSON.",
+            "You parse spoken reminders into task JSON. Support English, Turkish, and Italian. Default missing date to the supplied today value. Default missing time to 10:00. Default missing reminderMinutesBefore to 30. Do not return 0 for reminderMinutesBefore unless the user explicitly says no reminder, no notification, zero minutes, or equivalent. Use Europe/Berlin for relative dates. Return only schema-valid JSON.",
         },
         {
           role: "user",
@@ -203,6 +221,7 @@ export async function parseTaskTranscript(transcript: string) {
 
     const parsed = normalizeParsedTask(
       JSON.parse(response.output_text) as ParsedTask,
+      { allowZeroReminder },
     );
 
     if (!chronoDateTime) {
@@ -219,13 +238,18 @@ export async function parseTaskTranscript(transcript: string) {
       throw error;
     }
 
-    return normalizeParsedTask({
-      title: titleFromTranscript(cleanTranscript, chronoDateTime.matchedText),
-      date: chronoDateTime.date,
-      time: chronoDateTime.time,
-      person: "",
-      category: "other",
-      reminderMinutesBefore: 15,
-    });
+    return normalizeParsedTask(
+      {
+        title: titleFromTranscript(cleanTranscript, chronoDateTime.matchedText),
+        date: chronoDateTime.date,
+        time: chronoDateTime.time,
+        person: "",
+        category: "other",
+        reminderMinutesBefore: DEFAULT_REMINDER_MINUTES,
+      },
+      {
+        allowZeroReminder,
+      },
+    );
   }
 }
