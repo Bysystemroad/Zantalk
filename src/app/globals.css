@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --background: #05070c;
+  --foreground: #f7fbff;
+  --muted: #8b98ad;
+  --panel: rgba(13, 19, 32, 0.72);
+  --panel-strong: rgba(17, 26, 43, 0.92);
+  --line: rgba(148, 163, 184, 0.18);
+  --accent: #8cc8ff;
+  --accent-strong: #58adff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--background);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(88, 173, 255, 0.18), transparent 32rem),
+    radial-gradient(circle at 20% 80%, rgba(140, 200, 255, 0.1), transparent 22rem),
+    linear-gradient(180deg, #080b12 0%, #04060a 100%);
+  color: var(--foreground);
+  font-family: Geist, "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(rgba(140, 200, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140, 200, 255, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, transparent, black 18%, transparent 88%);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.blue-glow {
+  box-shadow:
+    0 0 32px rgba(88, 173, 255, 0.32),
+    inset 0 0 22px rgba(140, 200, 255, 0.14);
+}
+
+.tap-highlight {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wave-bar {
+  width: 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f8fbff, #7fc7ff);
+  box-shadow: 0 0 22px rgba(99, 179, 255, 0.72);
+  animation: zantalk-wave 1s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.wave-bar:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.wave-bar:nth-child(4) {
+  animation-delay: 0.36s;
+}
+
+.wave-bar:nth-child(5) {
+  animation-delay: 0.48s;
+}
+
+@keyframes zantalk-wave {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+    opacity: 0.62;
+  }
+
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
