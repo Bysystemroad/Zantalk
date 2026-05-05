@@ -21,6 +21,8 @@ type ParseTaskResponse = ParsedTask & {
   error?: string;
 };
 
+const FINALIZE_RECORDING_DELAY_MS = 700;
+
 function displayCategory(category: string) {
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
@@ -38,9 +40,34 @@ function readPendingTask() {
   return raw ? (JSON.parse(raw) as PendingTask) : null;
 }
 
+function getBestAudioMimeType() {
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
+}
+
+function audioFilename(mimeType: string) {
+  if (mimeType.includes("mp4")) {
+    return "zantalk-task.mp4";
+  }
+
+  if (mimeType.includes("ogg")) {
+    return "zantalk-task.ogg";
+  }
+
+  return "zantalk-task.webm";
+}
+
 export function NewTaskFlow() {
   const router = useRouter();
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const mimeTypeRef = useRef("audio/webm");
+  const stopTimeoutRef = useRef<number | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [pending, setPending] = useState<PendingTask | null>(readPendingTask);
   const [editing, setEditing] = useState(false);
@@ -51,11 +78,28 @@ export function NewTaskFlow() {
 
   async function startRecording() {
     setError("");
+    if (stopTimeoutRef.current) {
+      window.clearTimeout(stopTimeoutRef.current);
+      stopTimeoutRef.current = null;
+    }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+        },
+      });
+      const mimeType = getBestAudioMimeType();
+      const recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 128000,
+      });
       recorderRef.current = recorder;
+      mimeTypeRef.current = recorder.mimeType || mimeType || "audio/webm";
       chunksRef.current = [];
 
       recorder.ondataavailable = (event) => {
@@ -66,10 +110,13 @@ export function NewTaskFlow() {
 
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
-        await parseAudio(new Blob(chunksRef.current, { type: "audio/webm" }));
+        await parseAudio(
+          new Blob(chunksRef.current, { type: mimeTypeRef.current }),
+          mimeTypeRef.current,
+        );
       };
 
-      recorder.start();
+      recorder.start(250);
       setStatus("recording");
     } catch {
       setStatus("error");
@@ -78,20 +125,34 @@ export function NewTaskFlow() {
   }
 
   function stopRecording() {
-    recorderRef.current?.stop();
-    recorderRef.current = null;
-    setStatus("uploading");
+    if (!recorderRef.current || stopTimeoutRef.current) {
+      return;
+    }
+
+    stopTimeoutRef.current = window.setTimeout(() => {
+      recorderRef.current?.stop();
+      recorderRef.current = null;
+      stopTimeoutRef.current = null;
+      setStatus("uploading");
+    }, FINALIZE_RECORDING_DELAY_MS);
   }
 
-  async function parseAudio(blob: Blob) {
+  function recordAgain() {
+    sessionStorage.removeItem("zantalk.pendingTask");
+    setPending(null);
+    setError("");
+    setStatus("idle");
+  }
+
+  async function parseAudio(blob: Blob, mimeType: string) {
     if (blob.size === 0) {
       setStatus("error");
-      setError("No audio was captured. Try once more.");
+      setError("I couldn’t hear that clearly. Please try again.");
       return;
     }
 
     const formData = new FormData();
-    formData.set("audio", blob, "zantalk-task.webm");
+    formData.set("audio", blob, audioFilename(mimeType));
     setStatus("uploading");
 
     const transcribeResponse = await fetch("/api/transcribe", {
@@ -105,7 +166,10 @@ export function NewTaskFlow() {
 
     if (!transcribeResponse.ok || !transcribeBody?.transcript) {
       setStatus("error");
-      setError(transcribeBody?.error ?? "Transcription failed.");
+      setError(
+        transcribeBody?.error ??
+          "I couldn’t hear that clearly. Please try again.",
+      );
       return;
     }
 
@@ -193,9 +257,18 @@ export function NewTaskFlow() {
           </button>
 
           {error ? (
-            <p className="mt-5 rounded-[8px] border border-red-300/20 bg-red-300/10 px-4 py-3 text-sm text-red-100">
-              {error}
-            </p>
+            <div className="mt-5 grid gap-3">
+              <p className="rounded-[8px] border border-red-300/20 bg-red-300/10 px-4 py-3 text-sm text-red-100">
+                {error}
+              </p>
+              <button
+                type="button"
+                onClick={recordAgain}
+                className="tap-highlight rounded-[8px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold text-white"
+              >
+                Record again
+              </button>
+            </div>
           ) : null}
         </section>
       </main>
@@ -227,6 +300,17 @@ export function NewTaskFlow() {
       <form action={saveTask} className="grid gap-5">
         <section className="glass rounded-[8px] p-5 shadow-[0_0_70px_rgba(88,173,255,0.13)]">
           <div className="grid gap-3">
+            <label className="grid gap-2 rounded-[8px] border border-blue-200/15 bg-blue-300/10 p-4 text-sm font-medium text-slate-400">
+              Original transcript:
+              <textarea
+                name="originalTranscript"
+                rows={3}
+                readOnly={!editing}
+                defaultValue={pending.transcript}
+                className="resize-none bg-transparent text-base font-semibold leading-6 text-white outline-none"
+              />
+            </label>
+
             <label className="grid gap-2 rounded-[8px] border border-white/10 bg-white/[0.035] p-4 text-sm font-medium text-slate-400">
               Title:
               <input
@@ -332,12 +416,6 @@ export function NewTaskFlow() {
             </label>
           </div>
         </section>
-
-        <input
-          type="hidden"
-          name="originalTranscript"
-          value={pending.transcript}
-        />
 
         <div className="grid grid-cols-[0.8fr_1.2fr] gap-3">
           <button

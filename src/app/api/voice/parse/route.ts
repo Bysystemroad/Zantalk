@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     console.log("[/api/voice/parse] received audio bytes:", audio.size);
     const transcript = await transcribeAudio(audio);
     console.log("[/api/voice/parse] OpenAI transcript:", transcript);
+    console.log("[/api/voice/parse] transcript length:", transcript.length);
     const task = await parseTaskTranscript(transcript);
     console.log("[/api/voice/parse] parsed JSON:", JSON.stringify(task));
 

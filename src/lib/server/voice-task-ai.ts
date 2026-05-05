@@ -34,6 +34,8 @@ type ChronoDateTime = {
 };
 
 const DEFAULT_REMINDER_MINUTES = 30;
+const TRANSCRIPTION_PROMPT =
+  "This is a voice-to-task productivity app. The user may speak in English, Turkish, or Italian. Preserve names, task details, dates, times, and business terms accurately. Common examples: Cem, Canberk, Valeria, client, invoice, offer, meeting, follow-up, email, reminder, domani, venerdì, bugün, yarın.";
 
 const berlinDateFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Berlin",
@@ -167,11 +169,12 @@ export async function transcribeAudio(audio: File) {
     model: "gpt-4o-mini-transcribe",
     file: audio,
     response_format: "json",
+    prompt: TRANSCRIPTION_PROMPT,
   });
 
   const transcript = transcription.text?.trim() ?? "";
-  if (!transcript) {
-    throw new Error("No speech was detected. Try recording again.");
+  if (!transcript || transcript.length < 3) {
+    throw new Error("I couldn’t hear that clearly. Please try again.");
   }
 
   return transcript;

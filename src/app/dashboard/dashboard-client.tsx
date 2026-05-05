@@ -25,6 +25,31 @@ type ParseTaskResponse = ParsedTask & {
   error?: string;
 };
 
+const FINALIZE_RECORDING_DELAY_MS = 700;
+
+function getBestAudioMimeType() {
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
+}
+
+function audioFilename(mimeType: string) {
+  if (mimeType.includes("mp4")) {
+    return "zantalk-task.mp4";
+  }
+
+  if (mimeType.includes("ogg")) {
+    return "zantalk-task.ogg";
+  }
+
+  return "zantalk-task.webm";
+}
+
 export function DashboardClient({
   todayTasks,
   totalPending,
@@ -36,6 +61,8 @@ export function DashboardClient({
 }) {
   const router = useRouter();
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const mimeTypeRef = useRef("audio/webm");
+  const stopTimeoutRef = useRef<number | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [status, setStatus] = useState<
     "idle" | "recording" | "uploading" | "parsing" | "error"
@@ -56,11 +83,28 @@ export function DashboardClient({
 
   async function startRecording() {
     setError("");
+    if (stopTimeoutRef.current) {
+      window.clearTimeout(stopTimeoutRef.current);
+      stopTimeoutRef.current = null;
+    }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+        },
+      });
+      const mimeType = getBestAudioMimeType();
+      const recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 128000,
+      });
       recorderRef.current = recorder;
+      mimeTypeRef.current = recorder.mimeType || mimeType || "audio/webm";
       chunksRef.current = [];
 
       recorder.ondataavailable = (event) => {
@@ -71,11 +115,11 @@ export function DashboardClient({
 
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        await parseAudio(blob);
+        const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current });
+        await parseAudio(blob, mimeTypeRef.current);
       };
 
-      recorder.start();
+      recorder.start(250);
       setStatus("recording");
     } catch {
       setStatus("error");
@@ -84,20 +128,32 @@ export function DashboardClient({
   }
 
   function stopRecording() {
-    recorderRef.current?.stop();
-    recorderRef.current = null;
-    setStatus("uploading");
+    if (!recorderRef.current || stopTimeoutRef.current) {
+      return;
+    }
+
+    stopTimeoutRef.current = window.setTimeout(() => {
+      recorderRef.current?.stop();
+      recorderRef.current = null;
+      stopTimeoutRef.current = null;
+      setStatus("uploading");
+    }, FINALIZE_RECORDING_DELAY_MS);
   }
 
-  async function parseAudio(blob: Blob) {
+  function recordAgain() {
+    setError("");
+    setStatus("idle");
+  }
+
+  async function parseAudio(blob: Blob, mimeType: string) {
     if (blob.size === 0) {
       setStatus("error");
-      setError("No audio was captured. Try once more.");
+      setError("I couldn’t hear that clearly. Please try again.");
       return;
     }
 
     const formData = new FormData();
-    formData.set("audio", blob, "zantalk-task.webm");
+    formData.set("audio", blob, audioFilename(mimeType));
     setStatus("uploading");
 
     const transcribeResponse = await fetch("/api/transcribe", {
@@ -111,7 +167,10 @@ export function DashboardClient({
 
     if (!transcribeResponse.ok || !transcribeBody?.transcript) {
       setStatus("error");
-      setError(transcribeBody?.error ?? "Transcription failed.");
+      setError(
+        transcribeBody?.error ??
+          "I couldn’t hear that clearly. Please try again.",
+      );
       return;
     }
 
@@ -255,9 +314,18 @@ export function DashboardClient({
             : "Tap and speak"}
         </p>
         {error ? (
-          <p className="mt-4 rounded-[8px] border border-red-300/20 bg-red-300/10 px-4 py-3 text-center text-sm text-red-100">
-            {error}
-          </p>
+          <div className="mt-4 grid gap-3">
+            <p className="rounded-[8px] border border-red-300/20 bg-red-300/10 px-4 py-3 text-center text-sm text-red-100">
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={recordAgain}
+              className="tap-highlight rounded-[8px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold text-white"
+            >
+              Record again
+            </button>
+          </div>
         ) : null}
       </section>
 

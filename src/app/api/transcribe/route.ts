@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     console.log("[/api/transcribe] received audio bytes:", audio.size);
     const transcript = await transcribeAudio(audio);
     console.log("[/api/transcribe] OpenAI transcript:", transcript);
+    console.log("[/api/transcribe] transcript length:", transcript.length);
 
     return NextResponse.json({ transcript });
   } catch (error) {
