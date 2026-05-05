@@ -1,3 +1,4 @@
+import * as chrono from "chrono-node";
 import { todayInBerlin } from "@/lib/date";
 import { getOpenAIClient } from "@/lib/openai";
 import type { ParsedTask } from "@/lib/types";
@@ -25,6 +26,101 @@ const taskSchema = {
     "reminderMinutesBefore",
   ],
 };
+
+type ChronoDateTime = {
+  date: string;
+  time: string;
+  matchedText: string;
+};
+
+const berlinDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Berlin",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function padTime(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function formatBerlinDate(date: Date) {
+  return berlinDateFormatter.format(date);
+}
+
+function dayPeriodTime(text: string) {
+  const lower = text.toLowerCase();
+
+  if (/\bmorning\b/.test(lower)) {
+    return "09:00";
+  }
+
+  if (/\bafternoon\b/.test(lower)) {
+    return "15:00";
+  }
+
+  if (/\bevening\b/.test(lower)) {
+    return "19:00";
+  }
+
+  return null;
+}
+
+function hasExplicitMeridiem(text: string) {
+  return /\b(a\.?m\.?|p\.?m\.?|am|pm)\b/i.test(text);
+}
+
+function parseChronoDateTime(transcript: string): ChronoDateTime | null {
+  const referenceDate = new Date();
+  const results = [
+    ...chrono.en.parse(transcript, referenceDate, { forwardDate: true }),
+    ...chrono.it.parse(transcript, referenceDate, { forwardDate: true }),
+  ].sort((a, b) => a.index - b.index);
+
+  const result = results[0];
+  if (!result) {
+    return null;
+  }
+
+  const matchedText = result.text;
+  const date = formatBerlinDate(result.start.date());
+  const mappedDayPeriod = dayPeriodTime(matchedText) ?? dayPeriodTime(transcript);
+
+  if (mappedDayPeriod) {
+    return { date, time: mappedDayPeriod, matchedText };
+  }
+
+  if (result.start.isCertain("hour")) {
+    let hour = result.start.get("hour") ?? 10;
+    const minute = result.start.get("minute") ?? 0;
+    const ambiguousEarlyHour =
+      hour >= 1 &&
+      hour <= 7 &&
+      !result.start.isCertain("meridiem") &&
+      !hasExplicitMeridiem(matchedText);
+
+    if (ambiguousEarlyHour) {
+      hour += 12;
+    }
+
+    return {
+      date,
+      time: `${padTime(hour)}:${padTime(minute)}`,
+      matchedText,
+    };
+  }
+
+  return { date, time: "10:00", matchedText };
+}
+
+function titleFromTranscript(transcript: string, chronoMatch: string) {
+  const title = transcript
+    .replace(chronoMatch, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return title || transcript.trim() || "Untitled task";
+}
 
 export function getOpenAIKeyError() {
   return process.env.OPENAI_API_KEY ? null : "Missing OpenAI API key";
@@ -75,34 +171,61 @@ export async function parseTaskTranscript(transcript: string) {
     throw new Error("Transcript is required.");
   }
 
+  const chronoDateTime = parseChronoDateTime(cleanTranscript);
   const openai = getOpenAIClient();
-  const response = await openai.responses.create({
-    model: "gpt-4o-mini",
-    input: [
-      {
-        role: "system",
-        content:
-          "You parse spoken reminders into task JSON. Support English, Turkish, and Italian. Default missing date to the supplied today value. Default missing time to 10:00. Use Europe/Berlin for relative dates. Return only schema-valid JSON.",
+  try {
+    const response = await openai.responses.create({
+      model: "gpt-4o-mini",
+      input: [
+        {
+          role: "system",
+          content:
+            "You parse spoken reminders into task JSON. Support English, Turkish, and Italian. Default missing date to the supplied today value. Default missing time to 10:00. Use Europe/Berlin for relative dates. Return only schema-valid JSON.",
+        },
+        {
+          role: "user",
+          content: `Today is ${todayInBerlin()} in Europe/Berlin. Transcript: ${cleanTranscript}`,
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "zantalk_task",
+          strict: true,
+          schema: taskSchema,
+        },
       },
-      {
-        role: "user",
-        content: `Today is ${todayInBerlin()} in Europe/Berlin. Transcript: ${cleanTranscript}`,
-      },
-    ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: "zantalk_task",
-        strict: true,
-        schema: taskSchema,
-      },
-    },
-  });
+    });
 
-  if (!response.output_text) {
-    throw new Error("OpenAI returned an empty task parse response.");
+    if (!response.output_text) {
+      throw new Error("OpenAI returned an empty task parse response.");
+    }
+
+    const parsed = normalizeParsedTask(
+      JSON.parse(response.output_text) as ParsedTask,
+    );
+
+    if (!chronoDateTime) {
+      return parsed;
+    }
+
+    return {
+      ...parsed,
+      date: chronoDateTime.date,
+      time: chronoDateTime.time,
+    };
+  } catch (error) {
+    if (!chronoDateTime) {
+      throw error;
+    }
+
+    return normalizeParsedTask({
+      title: titleFromTranscript(cleanTranscript, chronoDateTime.matchedText),
+      date: chronoDateTime.date,
+      time: chronoDateTime.time,
+      person: "",
+      category: "other",
+      reminderMinutesBefore: 15,
+    });
   }
-
-  const parsed = JSON.parse(response.output_text) as ParsedTask;
-  return normalizeParsedTask(parsed);
 }
