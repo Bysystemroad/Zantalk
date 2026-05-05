@@ -26,6 +26,9 @@ type ParseTaskResponse = ParsedTask & {
 };
 
 const FINALIZE_RECORDING_DELAY_MS = 700;
+const MIN_RECORDING_DURATION_MS = 1000;
+const SILENCE_AUTO_STOP_MS = 2700;
+const SPEECH_RMS_THRESHOLD = 0.025;
 
 function getBestAudioMimeType() {
   const types = [
@@ -63,6 +66,11 @@ export function DashboardClient({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const mimeTypeRef = useRef("audio/webm");
   const stopTimeoutRef = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const recordingStartedAtRef = useRef(0);
+  const speechDetectedRef = useRef(false);
+  const silenceStartedAtRef = useRef<number | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [status, setStatus] = useState<
     "idle" | "recording" | "uploading" | "parsing" | "error"
@@ -106,6 +114,9 @@ export function DashboardClient({
       recorderRef.current = recorder;
       mimeTypeRef.current = recorder.mimeType || mimeType || "audio/webm";
       chunksRef.current = [];
+      recordingStartedAtRef.current = 0;
+      speechDetectedRef.current = false;
+      silenceStartedAtRef.current = null;
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -114,12 +125,14 @@ export function DashboardClient({
       };
 
       recorder.onstop = async () => {
+        stopSilenceDetection();
         stream.getTracks().forEach((track) => track.stop());
         const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current });
         await parseAudio(blob, mimeTypeRef.current);
       };
 
       recorder.start(250);
+      startSilenceDetection(stream);
       setStatus("recording");
     } catch {
       setStatus("error");
@@ -128,16 +141,89 @@ export function DashboardClient({
   }
 
   function stopRecording() {
+    finalizeRecording(FINALIZE_RECORDING_DELAY_MS);
+  }
+
+  function finalizeRecording(delayMs = 0) {
     if (!recorderRef.current || stopTimeoutRef.current) {
       return;
     }
 
     stopTimeoutRef.current = window.setTimeout(() => {
+      stopSilenceDetection();
       recorderRef.current?.stop();
       recorderRef.current = null;
       stopTimeoutRef.current = null;
       setStatus("uploading");
-    }, FINALIZE_RECORDING_DELAY_MS);
+    }, delayMs);
+  }
+
+  function stopSilenceDetection() {
+    if (animationFrameRef.current) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    void audioContextRef.current?.close().catch(() => undefined);
+    audioContextRef.current = null;
+  }
+
+  function startSilenceDetection(stream: MediaStream) {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+
+    if (!AudioContextClass) {
+      return;
+    }
+
+    const audioContext = new AudioContextClass();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    const samples = new Uint8Array(analyser.fftSize);
+
+    source.connect(analyser);
+    audioContextRef.current = audioContext;
+
+    const tick = () => {
+      analyser.getByteTimeDomainData(samples);
+      let sum = 0;
+
+      for (const sample of samples) {
+        const normalized = (sample - 128) / 128;
+        sum += normalized * normalized;
+      }
+
+      const rms = Math.sqrt(sum / samples.length);
+      const now = Date.now();
+      recordingStartedAtRef.current ||= now;
+      const longEnough =
+        now - recordingStartedAtRef.current >= MIN_RECORDING_DURATION_MS;
+
+      if (rms > SPEECH_RMS_THRESHOLD) {
+        speechDetectedRef.current = true;
+        silenceStartedAtRef.current = null;
+      } else if (speechDetectedRef.current) {
+        silenceStartedAtRef.current ??= now;
+      }
+
+      const silentLongEnough =
+        speechDetectedRef.current &&
+        longEnough &&
+        silenceStartedAtRef.current !== null &&
+        now - silenceStartedAtRef.current >= SILENCE_AUTO_STOP_MS;
+
+      if (silentLongEnough) {
+        finalizeRecording(0);
+        return;
+      }
+
+      animationFrameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    animationFrameRef.current = window.requestAnimationFrame(tick);
   }
 
   function recordAgain() {
@@ -148,7 +234,7 @@ export function DashboardClient({
   async function parseAudio(blob: Blob, mimeType: string) {
     if (blob.size === 0) {
       setStatus("error");
-      setError("I couldn’t hear that clearly. Please try again.");
+      setError("Couldn't hear clearly, try again.");
       return;
     }
 
@@ -169,7 +255,7 @@ export function DashboardClient({
       setStatus("error");
       setError(
         transcribeBody?.error ??
-          "I couldn’t hear that clearly. Please try again.",
+          "Couldn't hear clearly, try again.",
       );
       return;
     }
@@ -219,7 +305,7 @@ export function DashboardClient({
           Listening...
         </p>
         <p className="mt-5 max-w-64 text-2xl font-semibold leading-tight text-white">
-          &quot;Tomorrow at 3 call Cem&quot;
+          Listening...
         </p>
         <button
           type="button"
@@ -309,8 +395,8 @@ export function DashboardClient({
         <p className="mt-5 text-center text-sm font-semibold text-slate-200">
           {busy
             ? status === "uploading"
-              ? "Preparing audio..."
-              : "Transcribing and parsing..."
+              ? "Processing..."
+              : "Processing..."
             : "Tap and speak"}
         </p>
         {error ? (
