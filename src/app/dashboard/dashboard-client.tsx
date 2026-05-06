@@ -30,8 +30,8 @@ type ParseTaskResponse = ParsedTask & {
 
 const FINALIZE_RECORDING_DELAY_MS = 700;
 const MIN_RECORDING_DURATION_MS = 1000;
-const SILENCE_AUTO_STOP_MS = 2700;
-const SPEECH_RMS_THRESHOLD = 0.025;
+const SILENCE_AUTO_STOP_MS = 1800;
+const SPEECH_RMS_THRESHOLD = 0.02;
 const FREE_LIMIT_MESSAGE =
   "You’ve used your 3 free voice tasks today. Unlock Premium for unlimited voice tasks.";
 
