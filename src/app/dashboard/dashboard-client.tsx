@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, Loader2, Mic, Square } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { TaskCard } from "@/components/task-card";
@@ -19,16 +20,20 @@ type ParseResponse = {
 type TranscribeResponse = {
   transcript?: string;
   error?: string;
+  code?: string;
 };
 
 type ParseTaskResponse = ParsedTask & {
   error?: string;
+  code?: string;
 };
 
 const FINALIZE_RECORDING_DELAY_MS = 700;
 const MIN_RECORDING_DURATION_MS = 1000;
 const SILENCE_AUTO_STOP_MS = 2700;
 const SPEECH_RMS_THRESHOLD = 0.025;
+const FREE_LIMIT_MESSAGE =
+  "You’ve used your 3 free voice tasks today. Unlock Premium for unlimited voice tasks.";
 
 function getBestAudioMimeType() {
   const types = [
@@ -254,7 +259,9 @@ export function DashboardClient({
     if (!transcribeResponse.ok || !transcribeBody?.transcript) {
       setStatus("error");
       setError(
-        transcribeBody?.error ??
+        transcribeBody?.code === "FREE_LIMIT_REACHED"
+          ? FREE_LIMIT_MESSAGE
+          : transcribeBody?.error ??
           "Couldn't hear clearly, try again.",
       );
       return;
@@ -272,7 +279,11 @@ export function DashboardClient({
 
     if (!parseResponse.ok || !parseBody || parseBody.error) {
       setStatus("error");
-      setError(parseBody?.error ?? "Task parsing failed.");
+      setError(
+        parseBody?.code === "FREE_LIMIT_REACHED"
+          ? FREE_LIMIT_MESSAGE
+          : parseBody?.error ?? "Task parsing failed.",
+      );
       return;
     }
 
@@ -411,6 +422,14 @@ export function DashboardClient({
             >
               Record again
             </button>
+            {error === FREE_LIMIT_MESSAGE ? (
+              <Link
+                href="/pricing"
+                className="tap-highlight rounded-[8px] bg-white px-4 py-3 text-center text-sm font-bold text-slate-950"
+              >
+                Unlock Premium
+              </Link>
+            ) : null}
           </div>
         ) : null}
       </section>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canCreateVoiceTask, FREE_LIMIT_ERROR } from "@/lib/server/plans";
 import {
   getOpenAIKeyError,
   parseTaskTranscript,
@@ -25,6 +26,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const quota = await canCreateVoiceTask(user.id);
+  if (!quota.allowed) {
+    return NextResponse.json(FREE_LIMIT_ERROR, { status: 402 });
   }
 
   try {

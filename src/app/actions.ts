@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  canCreateVoiceTask,
+  incrementDailyVoiceCount,
+} from "@/lib/server/plans";
 import { createClient } from "@/lib/supabase/server";
 import type { ParsedTask, TaskCategory } from "@/lib/types";
 
@@ -44,6 +48,16 @@ export async function saveTask(formData: FormData) {
     throw new Error("Title, date, and time are required.");
   }
 
+  const originalTranscript =
+    String(formData.get("originalTranscript") ?? "").trim() || null;
+  const isVoiceTask = Boolean(originalTranscript);
+  if (isVoiceTask) {
+    const quota = await canCreateVoiceTask(user.id);
+    if (!quota.allowed) {
+      throw new Error("Daily free limit reached");
+    }
+  }
+
   const { error } = await supabase.from("tasks").insert({
     user_id: user.id,
     title,
@@ -54,12 +68,15 @@ export async function saveTask(formData: FormData) {
     reminder_minutes_before: normalizeReminder(
       formData.get("reminderMinutesBefore"),
     ),
-    original_transcript:
-      String(formData.get("originalTranscript") ?? "").trim() || null,
+    original_transcript: originalTranscript,
   });
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (isVoiceTask) {
+    await incrementDailyVoiceCount(user.id);
   }
 
   revalidatePath("/app");

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { canCreateVoiceTask, FREE_LIMIT_ERROR } from "@/lib/server/plans";
 import { getOpenAIKeyError, transcribeAudio } from "@/lib/server/voice-task-ai";
 
 export const runtime = "nodejs";
@@ -21,6 +22,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const quota = await canCreateVoiceTask(user.id);
+  if (!quota.allowed) {
+    return NextResponse.json(FREE_LIMIT_ERROR, { status: 402 });
   }
 
   try {

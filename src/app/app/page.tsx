@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { PremiumLock } from "@/components/premium-lock";
 import { DashboardClient } from "@/app/dashboard/dashboard-client";
 import { TaskTabs } from "@/app/tasks/task-tabs";
 import { todayInBerlin } from "@/lib/date";
+import { getUserPlan } from "@/lib/server/plans";
 import { createClient } from "@/lib/supabase/server";
 import type { Task } from "@/lib/types";
 
@@ -29,6 +31,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     { data: allTasks },
     { count: pendingCount },
     { count: doneCount },
+    plan,
   ] = await Promise.all([
     supabase
       .from("tasks")
@@ -52,6 +55,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("status", "done"),
+    getUserPlan(user.id),
   ]);
 
   return (
@@ -72,6 +76,42 @@ export default async function AppPage({ searchParams }: AppPageProps) {
             initialTab={initialTab}
           />
         </section>
+        {!plan.isPremium ? (
+          <section>
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-white">
+                  Premium AI
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {plan.remainingFreeVoiceTasks} free voice tasks left today
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3">
+              <PremiumLock
+                title="Google Calendar Sync"
+                description="Send confirmed Zantalk tasks into your calendar automatically."
+              />
+              <PremiumLock
+                title="AI Categorization"
+                description="Let Zantalk organize work, personal, health, and study tasks for you."
+              />
+              <PremiumLock
+                title="Task Summaries"
+                description="Turn your day into a clean AI summary of what matters next."
+              />
+              <PremiumLock
+                title="Follow-up AI Suggestions"
+                description="Get suggested next steps after meetings, offers, invoices, and emails."
+              />
+              <PremiumLock
+                title="Smart Reminders"
+                description="Use smarter reminders based on urgency, context, and task type."
+              />
+            </div>
+          </section>
+        ) : null}
       </div>
     </AppShell>
   );
