@@ -4,6 +4,7 @@ create table if not exists public.profiles (
   premium_until timestamptz,
   daily_voice_count int not null default 0,
   last_voice_reset date not null default current_date,
+  onboarding_completed boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

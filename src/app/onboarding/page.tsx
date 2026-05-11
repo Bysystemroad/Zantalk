@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { NewTaskFlow } from "@/app/app/new/new-task-flow";
+import { OnboardingFlow } from "@/components/onboarding-flow";
 import { getOnboardingCompleted } from "@/lib/server/onboarding";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function NewTaskPage() {
+export default async function OnboardingPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,9 +15,9 @@ export default async function NewTaskPage() {
 
   const onboardingCompleted = await getOnboardingCompleted(user.id);
 
-  if (!onboardingCompleted) {
-    redirect("/onboarding");
+  if (onboardingCompleted) {
+    redirect("/app");
   }
 
-  return <NewTaskFlow />;
+  return <OnboardingFlow />;
 }

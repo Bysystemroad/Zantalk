@@ -38,6 +38,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```text
 supabase/migrations/001_create_tasks.sql
 supabase/migrations/002_create_profiles.sql
+supabase/migrations/003_add_onboarding_to_profiles.sql
 ```
 
 5. Add these Supabase auth redirect URLs:
@@ -73,6 +74,7 @@ Deploy as a standard Next.js project and add the same environment variables in V
 - Login lives at `/login`.
 - The app dashboard lives at `/app`, voice capture/confirmation at `/app/new`, and completed history at `/app/history`.
 - Pricing lives at `/pricing`.
+- First-time onboarding lives at `/onboarding` and is shown until `profiles.onboarding_completed` is true.
 - Missing parsed dates default to today in Europe/Berlin.
 - Missing parsed times default to `10:00`.
 - Local reminders use the browser notification permission and service worker display while the installed/open app can schedule timers. Guaranteed background push delivery is intentionally outside this MVP.

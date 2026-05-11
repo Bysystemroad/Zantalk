@@ -105,3 +105,15 @@ textarea {
     opacity: 1;
   }
 }
+
+@keyframes zantalk-onboarding-in {
+  0% {
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}

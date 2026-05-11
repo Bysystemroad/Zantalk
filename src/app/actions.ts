@@ -6,6 +6,7 @@ import {
   canCreateVoiceTask,
   incrementDailyVoiceCount,
 } from "@/lib/server/plans";
+import { setOnboardingCompleted } from "@/lib/server/onboarding";
 import { createClient } from "@/lib/supabase/server";
 import { categories, type ParsedTask, type TaskCategory } from "@/lib/types";
 
@@ -27,6 +28,21 @@ export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/");
+}
+
+export async function completeOnboarding() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  await setOnboardingCompleted(user.id);
+  revalidatePath("/app");
+  redirect("/app");
 }
 
 export async function saveTask(formData: FormData) {

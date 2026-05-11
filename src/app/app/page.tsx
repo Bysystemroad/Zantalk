@@ -5,6 +5,7 @@ import { PremiumLock } from "@/components/premium-lock";
 import { DashboardClient } from "@/app/dashboard/dashboard-client";
 import { TaskTabs } from "@/app/tasks/task-tabs";
 import { todayInBerlin } from "@/lib/date";
+import { getOnboardingCompleted } from "@/lib/server/onboarding";
 import { getUserPlan } from "@/lib/server/plans";
 import { createClient } from "@/lib/supabase/server";
 import type { Task } from "@/lib/types";
@@ -24,6 +25,12 @@ export default async function AppPage({ searchParams }: AppPageProps) {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const onboardingCompleted = await getOnboardingCompleted(user.id);
+
+  if (!onboardingCompleted) {
+    redirect("/onboarding");
   }
 
   const today = todayInBerlin();

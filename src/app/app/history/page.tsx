@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { TaskCard } from "@/components/task-card";
+import { getOnboardingCompleted } from "@/lib/server/onboarding";
 import { createClient } from "@/lib/supabase/server";
 import type { Task } from "@/lib/types";
 
@@ -12,6 +13,12 @@ export default async function AppHistoryPage() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const onboardingCompleted = await getOnboardingCompleted(user.id);
+
+  if (!onboardingCompleted) {
+    redirect("/onboarding");
   }
 
   const { data } = await supabase
