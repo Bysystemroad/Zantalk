@@ -7,7 +7,7 @@ import {
   incrementDailyVoiceCount,
 } from "@/lib/server/plans";
 import { createClient } from "@/lib/supabase/server";
-import type { ParsedTask, TaskCategory } from "@/lib/types";
+import { categories, type ParsedTask, type TaskCategory } from "@/lib/types";
 
 function normalizeReminder(value: FormDataEntryValue | null) {
   const raw = String(value ?? "").trim();
@@ -114,6 +114,54 @@ export async function markTaskDone(taskId: string) {
     .update({ status: "done" })
     .eq("id", taskId)
     .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/app");
+  revalidatePath("/app/history");
+  revalidatePath("/dashboard");
+  revalidatePath("/tasks");
+}
+
+export async function updateTask(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const taskId = String(formData.get("taskId") ?? "").trim();
+  const title = String(formData.get("title") ?? "").trim();
+  const taskDate = String(formData.get("date") ?? "").trim();
+  const taskTime = String(formData.get("time") ?? "").trim();
+  const categoryValue = String(formData.get("category") ?? "other").trim();
+  const category = categories.includes(categoryValue as TaskCategory)
+    ? (categoryValue as TaskCategory)
+    : "other";
+
+  if (!taskId || !title || !taskDate || !taskTime) {
+    throw new Error("Task, title, date, and time are required.");
+  }
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      title,
+      task_date: taskDate,
+      task_time: taskTime,
+      category,
+      reminder_minutes_before: normalizeReminder(
+        formData.get("reminderMinutesBefore"),
+      ),
+    })
+    .eq("id", taskId)
+    .eq("user_id", user.id)
+    .eq("status", "pending");
 
   if (error) {
     throw new Error(error.message);

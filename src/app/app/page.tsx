@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { PendingTasksSection } from "@/components/pending-tasks-section";
 import { PremiumLock } from "@/components/premium-lock";
 import { DashboardClient } from "@/app/dashboard/dashboard-client";
 import { TaskTabs } from "@/app/tasks/task-tabs";
@@ -28,6 +29,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   const today = todayInBerlin();
   const [
     { data: todayTasks },
+    { data: pendingTasks },
     { data: allTasks },
     { count: pendingCount },
     { count: doneCount },
@@ -38,6 +40,13 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       .select("*")
       .eq("user_id", user.id)
       .eq("task_date", today)
+      .order("task_time", { ascending: true }),
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .order("task_date", { ascending: true })
       .order("task_time", { ascending: true }),
     supabase
       .from("tasks")
@@ -66,6 +75,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           totalPending={pendingCount ?? 0}
           totalDone={doneCount ?? 0}
         />
+        <PendingTasksSection tasks={(pendingTasks ?? []) as Task[]} />
         <section>
           <div className="mb-3 flex items-end justify-between">
             <h2 className="text-xl font-semibold text-white">Tasks</h2>

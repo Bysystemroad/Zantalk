@@ -1,11 +1,36 @@
 "use client";
 
 import { Check, Clock, Trash2, UserRound } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { deleteTask, markTaskDone } from "@/app/actions";
 import { formatDisplayDate, formatDisplayTime } from "@/lib/date";
 import type { Task } from "@/lib/types";
 
 export function TaskCard({ task }: { task: Task }) {
+  const router = useRouter();
+  const [isMutating, startTransition] = useTransition();
+
+  function handleDone() {
+    startTransition(async () => {
+      await markTaskDone(task.id);
+      router.refresh();
+    });
+  }
+
+  function handleDelete() {
+    const confirmed = window.confirm(`Delete "${task.title}"?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    startTransition(async () => {
+      await deleteTask(task.id);
+      router.refresh();
+    });
+  }
+
   return (
     <article className="glass rounded-[8px] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -40,18 +65,20 @@ export function TaskCard({ task }: { task: Task }) {
           {task.status !== "done" ? (
             <button
               type="button"
+              disabled={isMutating}
               aria-label="Mark task done"
-              onClick={() => markTaskDone(task.id)}
-              className="tap-highlight rounded-full border border-emerald-300/20 bg-emerald-300/10 p-2 text-emerald-100"
+              onClick={handleDone}
+              className="tap-highlight rounded-full border border-emerald-300/20 bg-emerald-300/10 p-2 text-emerald-100 disabled:opacity-60"
             >
               <Check size={18} />
             </button>
           ) : null}
           <button
             type="button"
+            disabled={isMutating}
             aria-label="Delete task"
-            onClick={() => deleteTask(task.id)}
-            className="tap-highlight rounded-full border border-red-300/20 bg-red-300/10 p-2 text-red-100"
+            onClick={handleDelete}
+            className="tap-highlight rounded-full border border-red-300/20 bg-red-300/10 p-2 text-red-100 disabled:opacity-60"
           >
             <Trash2 size={18} />
           </button>
