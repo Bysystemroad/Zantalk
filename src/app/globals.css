@@ -117,3 +117,58 @@ textarea {
     opacity: 1;
   }
 }
+
+@keyframes zantalk-ai-ring {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.34;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 0.78;
+  }
+}
+
+@keyframes zantalk-ai-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.76;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes zantalk-success-pop {
+  0% {
+    transform: scale(0.72);
+    opacity: 0;
+  }
+
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes zantalk-success-ring {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.55;
+  }
+
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}

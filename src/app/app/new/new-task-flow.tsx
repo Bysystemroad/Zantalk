@@ -1,10 +1,15 @@
 "use client";
 
-import { ArrowLeft, Loader2, Mic, Pencil, Save, Square } from "lucide-react";
+import { ArrowLeft, Mic, Pencil, Save, Square } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { saveTask } from "@/app/actions";
+import { saveTaskWithSuccess } from "@/app/actions";
+import {
+  AiProcessingState,
+  type AiProcessingStep,
+  TaskCreatedState,
+} from "@/components/voice-ai-states";
 import { categories, type ParsedTask } from "@/lib/types";
 
 type PendingTask = {
@@ -70,6 +75,14 @@ function audioFilename(mimeType: string) {
   return "zantalk-task.webm";
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Task saving failed.";
+}
+
 export function NewTaskFlow() {
   const router = useRouter();
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -83,6 +96,10 @@ export function NewTaskFlow() {
   const chunksRef = useRef<Blob[]>([]);
   const [pending, setPending] = useState<PendingTask | null>(readPendingTask);
   const [editing, setEditing] = useState(false);
+  const [processingStep, setProcessingStep] =
+    useState<AiProcessingStep>("understood");
+  const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "recording" | "uploading" | "parsing" | "error"
   >("idle");
@@ -243,6 +260,8 @@ export function NewTaskFlow() {
 
     const formData = new FormData();
     formData.set("audio", blob, audioFilename(mimeType));
+    const processingStartedAt = Date.now();
+    setProcessingStep("understood");
     setStatus("uploading");
 
     const transcribeResponse = await fetch("/api/transcribe", {
@@ -265,6 +284,7 @@ export function NewTaskFlow() {
       return;
     }
 
+    setProcessingStep("analyzing");
     setStatus("parsing");
     const parseResponse = await fetch("/api/parse-task", {
       method: "POST",
@@ -289,9 +309,31 @@ export function NewTaskFlow() {
       transcript: transcribeBody.transcript,
       task: parseBody,
     };
+    setProcessingStep("ready");
+    await sleep(Math.max(450, 1500 - (Date.now() - processingStartedAt)));
     sessionStorage.setItem("zantalk.pendingTask", JSON.stringify(result));
     setPending(result);
     setStatus("idle");
+  }
+
+  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSaving(true);
+
+    try {
+      await saveTaskWithSuccess(new FormData(event.currentTarget));
+      sessionStorage.removeItem("zantalk.pendingTask");
+      setCreated(true);
+      window.setTimeout(() => router.push("/app"), 900);
+    } catch (saveError) {
+      setSaving(false);
+      setError(errorMessage(saveError));
+    }
+  }
+
+  if (created) {
+    return <TaskCreatedState />;
   }
 
   if (!pending) {
@@ -313,8 +355,12 @@ export function NewTaskFlow() {
         </header>
 
         <section className="flex flex-1 flex-col items-center justify-center text-center">
-          <div className="relative mb-12 flex h-56 w-56 items-center justify-center rounded-full border border-blue-200/15 bg-blue-300/10 shadow-[0_0_90px_rgba(88,173,255,0.34)]">
-            {recording ? (
+          {busy ? (
+            <AiProcessingState step={processingStep} />
+          ) : (
+            <>
+              <div className="relative mb-12 flex h-56 w-56 items-center justify-center rounded-full border border-blue-200/15 bg-blue-300/10 shadow-[0_0_90px_rgba(88,173,255,0.34)]">
+                {recording ? (
               <div className="flex h-32 items-center justify-center gap-3">
                 <span className="wave-bar h-16" />
                 <span className="wave-bar h-28" />
@@ -322,19 +368,21 @@ export function NewTaskFlow() {
                 <span className="wave-bar h-32" />
                 <span className="wave-bar h-16" />
               </div>
-            ) : busy ? (
-              <Loader2 className="animate-spin text-white" size={64} />
-            ) : (
-              <Mic className="text-white" size={76} />
-            )}
-          </div>
+                ) : (
+                  <Mic className="text-white" size={76} />
+                )}
+              </div>
 
-          <p className="text-sm font-semibold uppercase tracking-[0.34em] text-blue-100">
-            {recording ? "Listening..." : busy ? "Processing..." : "Voice capture"}
-          </p>
-          <p className="mt-5 max-w-72 text-2xl font-semibold leading-tight text-white">
-            {recording ? "Listening..." : "Speak once. Zantalk structures the task."}
-          </p>
+              <p className="text-sm font-semibold uppercase tracking-[0.34em] text-blue-100">
+                {recording ? "Listening..." : "Voice capture"}
+              </p>
+              <p className="mt-5 max-w-72 text-2xl font-semibold leading-tight text-white">
+                {recording
+                  ? "Listening..."
+                  : "Speak once. Zantalk structures the task."}
+              </p>
+            </>
+          )}
 
           <button
             type="button"
@@ -399,7 +447,7 @@ export function NewTaskFlow() {
         <span className="w-11" />
       </header>
 
-      <form action={saveTask} className="grid gap-5">
+      <form onSubmit={handleSave} className="grid gap-5">
         <section className="glass rounded-[8px] p-5 shadow-[0_0_70px_rgba(88,173,255,0.13)]">
           <div className="grid gap-3">
             <label className="grid gap-2 rounded-[8px] border border-blue-200/15 bg-blue-300/10 p-4 text-sm font-medium text-slate-400">
@@ -530,13 +578,18 @@ export function NewTaskFlow() {
           </button>
           <button
             type="submit"
-            onClick={() => sessionStorage.removeItem("zantalk.pendingTask")}
-            className="tap-highlight flex items-center justify-center gap-2 rounded-[8px] bg-white px-4 py-4 text-sm font-bold text-slate-950 shadow-[0_0_40px_rgba(140,200,255,0.22)]"
+            disabled={saving}
+            className="tap-highlight flex items-center justify-center gap-2 rounded-[8px] bg-white px-4 py-4 text-sm font-bold text-slate-950 shadow-[0_0_40px_rgba(140,200,255,0.22)] disabled:opacity-60"
           >
             <Save size={17} />
-            Save Task
+            {saving ? "Creating..." : "Save Task"}
           </button>
         </div>
+        {error ? (
+          <p className="rounded-[8px] border border-red-300/20 bg-red-300/10 px-4 py-3 text-sm text-red-100">
+            {error}
+          </p>
+        ) : null}
       </form>
     </main>
   );

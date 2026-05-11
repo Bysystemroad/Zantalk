@@ -1,10 +1,14 @@
 "use client";
 
-import { Bell, Loader2, Mic, Square } from "lucide-react";
+import { Bell, Mic, Square } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { TaskCard } from "@/components/task-card";
+import {
+  AiProcessingState,
+  type AiProcessingStep,
+} from "@/components/voice-ai-states";
 import { formatDisplayTime } from "@/lib/date";
 import {
   requestNotificationPermission,
@@ -58,6 +62,10 @@ function audioFilename(mimeType: string) {
   return "zantalk-task.webm";
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 export function DashboardClient({
   todayTasks,
   totalPending,
@@ -80,6 +88,8 @@ export function DashboardClient({
   const [status, setStatus] = useState<
     "idle" | "recording" | "uploading" | "parsing" | "error"
   >("idle");
+  const [processingStep, setProcessingStep] =
+    useState<AiProcessingStep>("understood");
   const [error, setError] = useState("");
   const [permission, setPermission] = useState(
     typeof Notification === "undefined" ? "unsupported" : Notification.permission,
@@ -245,6 +255,8 @@ export function DashboardClient({
 
     const formData = new FormData();
     formData.set("audio", blob, audioFilename(mimeType));
+    const processingStartedAt = Date.now();
+    setProcessingStep("understood");
     setStatus("uploading");
 
     const transcribeResponse = await fetch("/api/transcribe", {
@@ -267,6 +279,7 @@ export function DashboardClient({
       return;
     }
 
+    setProcessingStep("analyzing");
     setStatus("parsing");
     const parseResponse = await fetch("/api/parse-task", {
       method: "POST",
@@ -291,6 +304,8 @@ export function DashboardClient({
       transcript: transcribeBody.transcript,
       task: parseBody,
     };
+    setProcessingStep("ready");
+    await sleep(Math.max(450, 1500 - (Date.now() - processingStartedAt)));
     sessionStorage.setItem("zantalk.pendingTask", JSON.stringify(result));
     router.push("/app/new");
   }
@@ -326,6 +341,14 @@ export function DashboardClient({
           <Square size={16} fill="currentColor" />
           Stop
         </button>
+      </section>
+    );
+  }
+
+  if (busy) {
+    return (
+      <section className="flex min-h-[calc(100vh-11rem)] flex-col items-center justify-center text-center">
+        <AiProcessingState step={processingStep} />
       </section>
     );
   }
@@ -389,26 +412,15 @@ export function DashboardClient({
       <section className="flex flex-col items-center py-2">
         <button
           type="button"
-          disabled={busy}
           onClick={startRecording}
           aria-label="Start voice recording"
-          className="tap-highlight relative flex h-48 w-48 items-center justify-center rounded-full border border-blue-200/30 bg-blue-300/15 text-white blue-glow disabled:opacity-60"
+          className="tap-highlight relative flex h-48 w-48 items-center justify-center rounded-full border border-blue-200/30 bg-blue-300/15 text-white blue-glow"
         >
-          {!busy ? (
-            <span className="absolute inset-[-18px] rounded-full border border-blue-200/10 shadow-[0_0_90px_rgba(88,173,255,0.32)]" />
-          ) : null}
-          {busy ? (
-            <Loader2 className="animate-spin" size={62} />
-          ) : (
-            <Mic size={76} />
-          )}
+          <span className="absolute inset-[-18px] rounded-full border border-blue-200/10 shadow-[0_0_90px_rgba(88,173,255,0.32)]" />
+          <Mic size={76} />
         </button>
         <p className="mt-5 text-center text-sm font-semibold text-slate-200">
-          {busy
-            ? status === "uploading"
-              ? "Processing..."
-              : "Processing..."
-            : "Tap and speak"}
+          Tap and speak
         </p>
         {error ? (
           <div className="mt-4 grid gap-3">

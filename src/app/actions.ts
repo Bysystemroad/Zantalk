@@ -45,7 +45,7 @@ export async function completeOnboarding() {
   redirect("/app");
 }
 
-export async function saveTask(formData: FormData) {
+async function insertTaskFromForm(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -99,7 +99,16 @@ export async function saveTask(formData: FormData) {
   revalidatePath("/app/history");
   revalidatePath("/dashboard");
   revalidatePath("/tasks");
+}
+
+export async function saveTask(formData: FormData) {
+  await insertTaskFromForm(formData);
   redirect("/app");
+}
+
+export async function saveTaskWithSuccess(formData: FormData) {
+  await insertTaskFromForm(formData);
+  return { ok: true };
 }
 
 export async function createTaskFromParsed(task: ParsedTask, transcript: string) {
