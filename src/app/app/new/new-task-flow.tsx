@@ -601,7 +601,7 @@ export function NewTaskFlow({ canUseFollowUp }: { canUseFollowUp: boolean }) {
                     Delay
                     <select
                       name="followUpAfterDays"
-                      defaultValue="3"
+                      defaultValue="1"
                       disabled={!followUpEnabled}
                       className="rounded-[8px] border border-white/10 bg-[#0b111d] px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none disabled:opacity-50"
                     >
@@ -614,7 +614,7 @@ export function NewTaskFlow({ canUseFollowUp }: { canUseFollowUp: boolean }) {
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  <input type="hidden" name="followUpAfterDays" value="3" />
+                  <input type="hidden" name="followUpAfterDays" value="1" />
                   <p className="text-sm text-slate-400">
                     Premium users can enable follow-up suggestions for pending
                     tasks.

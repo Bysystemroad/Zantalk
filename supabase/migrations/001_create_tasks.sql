@@ -12,7 +12,7 @@ create table if not exists public.tasks (
   original_transcript text,
   status text not null default 'pending' check (status in ('pending', 'done')),
   follow_up_enabled boolean not null default false,
-  follow_up_after_days int not null default 3,
+  follow_up_after_days int not null default 1,
   follow_up_suggestion text,
   follow_up_last_generated_at timestamptz,
   created_at timestamptz not null default now()

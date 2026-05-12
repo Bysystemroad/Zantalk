@@ -40,6 +40,7 @@ supabase/migrations/001_create_tasks.sql
 supabase/migrations/002_create_profiles.sql
 supabase/migrations/003_add_onboarding_to_profiles.sql
 supabase/migrations/004_add_follow_up_ai_to_tasks.sql
+supabase/migrations/005_set_follow_up_default_to_one_day.sql
 ```
 
 5. Add these Supabase auth redirect URLs:
@@ -110,6 +111,7 @@ Run `supabase/migrations/004_add_follow_up_ai_to_tasks.sql` to add:
 - `follow_up_last_generated_at`
 
 A task is eligible when it is `pending`, Follow-up AI is enabled, `created_at` is older than the selected delay, and no suggestion exists or the last suggestion was generated more than 24 hours ago.
+The default follow-up delay is 1 day when no value is selected.
 
 To test:
 

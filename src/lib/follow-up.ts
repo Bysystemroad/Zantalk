@@ -4,10 +4,10 @@ export const FOLLOW_UP_DELAYS = [1, 3, 5, 7] as const;
 export type FollowUpDelay = (typeof FOLLOW_UP_DELAYS)[number];
 
 export function normalizeFollowUpDelay(value: FormDataEntryValue | number | null) {
-  const parsed = Number(value ?? 3);
+  const parsed = Number(value ?? 1);
   return FOLLOW_UP_DELAYS.includes(parsed as FollowUpDelay)
     ? (parsed as FollowUpDelay)
-    : 3;
+    : 1;
 }
 
 export function daysPending(task: Pick<Task, "created_at">) {

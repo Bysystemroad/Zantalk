@@ -147,7 +147,7 @@ function PendingTaskCard({
                 </label>
                 <select
                   name="followUpAfterDays"
-                  defaultValue={task.follow_up_after_days ?? 3}
+                  defaultValue={task.follow_up_after_days ?? 1}
                   className="rounded-[8px] border border-white/10 bg-[#0b111d] px-3 py-2.5 text-sm text-white outline-none"
                 >
                   <option value="1">1 day</option>
@@ -157,7 +157,7 @@ function PendingTaskCard({
                 </select>
               </div>
             ) : (
-              <input type="hidden" name="followUpAfterDays" value="3" />
+              <input type="hidden" name="followUpAfterDays" value="1" />
             )}
           </section>
           <div className="grid grid-cols-2 gap-2">
