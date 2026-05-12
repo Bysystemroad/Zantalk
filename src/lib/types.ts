@@ -16,6 +16,8 @@ export type Task = {
   follow_up_after_days: number;
   follow_up_suggestion: string | null;
   follow_up_last_generated_at: string | null;
+  google_calendar_event_id: string | null;
+  google_calendar_synced_at: string | null;
   created_at: string;
 };
 

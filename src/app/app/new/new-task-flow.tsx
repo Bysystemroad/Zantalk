@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { saveTaskWithSuccess } from "@/app/actions";
+import { CalendarSyncButton } from "@/components/calendar-sync-button";
 import {
   AiProcessingState,
   type AiProcessingStep,
@@ -83,7 +84,15 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Task saving failed.";
 }
 
-export function NewTaskFlow({ canUseFollowUp }: { canUseFollowUp: boolean }) {
+export function NewTaskFlow({
+  canUseFollowUp,
+  canUseCalendar,
+  calendarConnected,
+}: {
+  canUseFollowUp: boolean;
+  canUseCalendar: boolean;
+  calendarConnected: boolean;
+}) {
   const router = useRouter();
   const recorderRef = useRef<MediaRecorder | null>(null);
   const mimeTypeRef = useRef("audio/webm");
@@ -100,6 +109,7 @@ export function NewTaskFlow({ canUseFollowUp }: { canUseFollowUp: boolean }) {
     useState<AiProcessingStep>("understood");
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState(false);
+  const [createdTaskId, setCreatedTaskId] = useState("");
   const [followUpEnabled, setFollowUpEnabled] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "recording" | "uploading" | "parsing" | "error"
@@ -323,10 +333,13 @@ export function NewTaskFlow({ canUseFollowUp }: { canUseFollowUp: boolean }) {
     setSaving(true);
 
     try {
-      await saveTaskWithSuccess(new FormData(event.currentTarget));
+      const result = await saveTaskWithSuccess(new FormData(event.currentTarget));
       sessionStorage.removeItem("zantalk.pendingTask");
+      setCreatedTaskId(result.taskId);
       setCreated(true);
-      window.setTimeout(() => router.push("/app"), 900);
+      if (!canUseCalendar || !calendarConnected) {
+        window.setTimeout(() => router.push("/app"), 900);
+      }
     } catch (saveError) {
       setSaving(false);
       setError(errorMessage(saveError));
@@ -334,7 +347,26 @@ export function NewTaskFlow({ canUseFollowUp }: { canUseFollowUp: boolean }) {
   }
 
   if (created) {
-    return <TaskCreatedState />;
+    return (
+      <TaskCreatedState>
+        {canUseCalendar && calendarConnected && createdTaskId ? (
+          <div className="mt-8 w-full max-w-xs">
+            <CalendarSyncButton
+              taskId={createdTaskId}
+              canUseCalendar={canUseCalendar}
+              calendarConnected={calendarConnected}
+            />
+            <button
+              type="button"
+              onClick={() => router.push("/app")}
+              className="tap-highlight mt-3 min-h-11 w-full rounded-[8px] border border-white/10 bg-white/[0.04] px-4 text-sm font-bold text-white"
+            >
+              Back to dashboard
+            </button>
+          </div>
+        ) : null}
+      </TaskCreatedState>
+    );
   }
 
   if (!pending) {

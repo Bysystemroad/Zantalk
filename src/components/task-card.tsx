@@ -4,10 +4,19 @@ import { Check, Clock, Trash2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { deleteTask, markTaskDone } from "@/app/actions";
+import { CalendarSyncButton } from "@/components/calendar-sync-button";
 import { formatDisplayDate, formatDisplayTime } from "@/lib/date";
 import type { Task } from "@/lib/types";
 
-export function TaskCard({ task }: { task: Task }) {
+export function TaskCard({
+  task,
+  canUseCalendar = false,
+  calendarConnected = false,
+}: {
+  task: Task;
+  canUseCalendar?: boolean;
+  calendarConnected?: boolean;
+}) {
   const router = useRouter();
   const [isMutating, startTransition] = useTransition();
 
@@ -83,6 +92,15 @@ export function TaskCard({ task }: { task: Task }) {
             <Trash2 size={18} />
           </button>
         </div>
+      </div>
+      <div className="mt-4">
+        <CalendarSyncButton
+          taskId={task.id}
+          initialSynced={Boolean(task.google_calendar_event_id)}
+          canUseCalendar={canUseCalendar}
+          calendarConnected={calendarConnected}
+          compact
+        />
       </div>
     </article>
   );

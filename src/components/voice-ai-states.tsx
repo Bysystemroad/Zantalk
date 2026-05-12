@@ -1,6 +1,7 @@
 "use client";
 
 import { BrainCircuit, CheckCircle2 } from "lucide-react";
+import type { ReactNode } from "react";
 
 export type AiProcessingStep = "understood" | "analyzing" | "ready";
 
@@ -52,7 +53,7 @@ export function AiProcessingState({ step }: { step: AiProcessingStep }) {
   );
 }
 
-export function TaskCreatedState() {
+export function TaskCreatedState({ children }: { children?: ReactNode }) {
   return (
     <main className="mx-auto grid min-h-screen w-full max-w-md place-items-center px-5 py-6 text-center">
       <section className="grid place-items-center">
@@ -68,6 +69,7 @@ export function TaskCreatedState() {
           Task created
         </p>
         <h1 className="mt-4 text-4xl font-semibold text-white">Saved to Zantalk</h1>
+        {children}
       </section>
     </main>
   );

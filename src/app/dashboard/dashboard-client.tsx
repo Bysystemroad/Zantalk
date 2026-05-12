@@ -70,10 +70,14 @@ export function DashboardClient({
   todayTasks,
   totalPending,
   totalDone,
+  canUseCalendar = false,
+  calendarConnected = false,
 }: {
   todayTasks: Task[];
   totalPending: number;
   totalDone: number;
+  canUseCalendar?: boolean;
+  calendarConnected?: boolean;
 }) {
   const router = useRouter();
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -465,7 +469,14 @@ export function DashboardClient({
         </div>
         <div className="grid gap-3">
           {todayTasks.length ? (
-            todayTasks.map((task) => <TaskCard key={task.id} task={task} />)
+            todayTasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                canUseCalendar={canUseCalendar}
+                calendarConnected={calendarConnected}
+              />
+            ))
           ) : (
             <div className="glass rounded-[8px] p-5 text-center text-sm text-slate-400">
               Your day is clear. Speak a task to start.

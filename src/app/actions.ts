@@ -80,22 +80,26 @@ async function insertTaskFromForm(formData: FormData) {
     }
   }
 
-  const { error } = await supabase.from("tasks").insert({
-    user_id: user.id,
-    title,
-    task_date: taskDate,
-    task_time: taskTime,
-    person: String(formData.get("person") ?? "").trim() || null,
-    category,
-    reminder_minutes_before: normalizeReminder(
-      formData.get("reminderMinutesBefore"),
-    ),
-    original_transcript: originalTranscript,
-    follow_up_enabled: followUpAllowed,
-    follow_up_after_days: normalizeFollowUpDelay(
-      formData.get("followUpAfterDays"),
-    ),
-  });
+  const { data: createdTask, error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: user.id,
+      title,
+      task_date: taskDate,
+      task_time: taskTime,
+      person: String(formData.get("person") ?? "").trim() || null,
+      category,
+      reminder_minutes_before: normalizeReminder(
+        formData.get("reminderMinutesBefore"),
+      ),
+      original_transcript: originalTranscript,
+      follow_up_enabled: followUpAllowed,
+      follow_up_after_days: normalizeFollowUpDelay(
+        formData.get("followUpAfterDays"),
+      ),
+    })
+    .select("id")
+    .single();
 
   if (error) {
     throw new Error(error.message);
@@ -109,6 +113,7 @@ async function insertTaskFromForm(formData: FormData) {
   revalidatePath("/app/history");
   revalidatePath("/dashboard");
   revalidatePath("/tasks");
+  return createdTask.id as string;
 }
 
 export async function saveTask(formData: FormData) {
@@ -117,8 +122,8 @@ export async function saveTask(formData: FormData) {
 }
 
 export async function saveTaskWithSuccess(formData: FormData) {
-  await insertTaskFromForm(formData);
-  return { ok: true };
+  const taskId = await insertTaskFromForm(formData);
+  return { ok: true, taskId };
 }
 
 export async function createTaskFromParsed(task: ParsedTask, transcript: string) {

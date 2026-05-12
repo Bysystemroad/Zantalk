@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 export type PlanName = "free" | "premium";
 export type PremiumFeature =
   | "google-calendar-sync"
+  | "google_calendar_sync"
   | "ai-categorization"
   | "task-summaries"
   | "follow-up-suggestions"

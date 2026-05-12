@@ -30,6 +30,9 @@ cp .env.local.example .env.local
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
 OPENAI_API_KEY=your-openai-key
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -41,6 +44,7 @@ supabase/migrations/002_create_profiles.sql
 supabase/migrations/003_add_onboarding_to_profiles.sql
 supabase/migrations/004_add_follow_up_ai_to_tasks.sql
 supabase/migrations/005_set_follow_up_default_to_one_day.sql
+supabase/migrations/006_add_google_calendar_sync.sql
 ```
 
 5. Add these Supabase auth redirect URLs:
@@ -74,7 +78,7 @@ Deploy as a standard Next.js project and add the same environment variables in V
 - Voice flow is record-then-parse through `/api/voice/parse`.
 - Marketing landing page lives at `/`.
 - Login lives at `/login`.
-- The app dashboard lives at `/app`, voice capture/confirmation at `/app/new`, and completed history at `/app/history`.
+- The app dashboard lives at `/app`, voice capture/confirmation at `/app/new`, completed history at `/app/history`, and settings at `/app/settings`.
 - Pricing lives at `/pricing`.
 - First-time onboarding lives at `/onboarding` and is shown until `profiles.onboarding_completed` is true.
 - Missing parsed dates default to today in Europe/Berlin.
@@ -117,6 +121,32 @@ To test:
 
 - Free user: keep `profiles.plan = 'free'`; the confirmation screen and dashboard show locked upgrade UI.
 - Premium user: set `profiles.plan = 'premium'` and `premium_until` to `null` or a future timestamp; enable Follow-up AI on a task and age `created_at` beyond the selected delay.
+
+## Google Calendar Sync
+
+Google Calendar Sync is Premium-only and MVP-scoped to one-way event creation from Zantalk tasks. It does not update, delete, or two-way sync calendar events.
+
+Run `supabase/migrations/006_add_google_calendar_sync.sql` to create `google_connections` and add task sync columns. Tokens are stored server-side in `google_connections` with RLS enabled and are never sent to the frontend.
+
+Required Google Cloud setup:
+
+- Create an OAuth client.
+- Add the production redirect URI: `https://zantalk.vercel.app/api/auth/callback/google`
+- Add the local redirect URI: `http://localhost:3000/api/auth/callback/google`
+- Add OAuth scope: `https://www.googleapis.com/auth/calendar.events`
+
+Required environment variables:
+
+```bash
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
+```
+
+To test:
+
+- Free user: keep `profiles.plan = 'free'`; Google Calendar shows locked Premium UI.
+- Premium user: set `profiles.plan = 'premium'`; open `/app/settings`, connect Google Calendar, then use “Add to Google Calendar” on a task.
 
 ## Future Payments
 

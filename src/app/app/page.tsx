@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { FollowUpAISection } from "@/components/follow-up-ai-section";
+import { GoogleCalendarCard } from "@/components/google-calendar-card";
 import { PendingTasksSection } from "@/components/pending-tasks-section";
 import { PremiumLock } from "@/components/premium-lock";
 import { DashboardClient } from "@/app/dashboard/dashboard-client";
 import { TaskTabs } from "@/app/tasks/task-tabs";
 import { todayInBerlin } from "@/lib/date";
 import { getEligibleFollowUpTasks } from "@/lib/server/follow-up";
+import { getGoogleConnectionStatus } from "@/lib/server/google-calendar";
 import { getOnboardingCompleted } from "@/lib/server/onboarding";
 import { getUserPlan } from "@/lib/server/plans";
 import { createClient } from "@/lib/supabase/server";
@@ -78,6 +80,9 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   const followUpTasks = plan.isPremium
     ? await getEligibleFollowUpTasks(user.id)
     : [];
+  const googleConnection = plan.isPremium
+    ? await getGoogleConnectionStatus(user.id)
+    : { connected: false };
 
   return (
     <AppShell title="Zantalk">
@@ -86,10 +91,30 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           todayTasks={(todayTasks ?? []) as Task[]}
           totalPending={pendingCount ?? 0}
           totalDone={doneCount ?? 0}
+          canUseCalendar={plan.isPremium}
+          calendarConnected={googleConnection.connected}
         />
+        <section>
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-white">
+                Integrations
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Connect Zantalk with your workflow.
+              </p>
+            </div>
+          </div>
+          <GoogleCalendarCard
+            isPremium={plan.isPremium}
+            connected={googleConnection.connected}
+          />
+        </section>
         <PendingTasksSection
           tasks={(pendingTasks ?? []) as Task[]}
           canUseFollowUp={plan.isPremium}
+          canUseCalendar={plan.isPremium}
+          calendarConnected={googleConnection.connected}
         />
         {plan.isPremium ? (
           <FollowUpAISection tasks={followUpTasks} />
@@ -102,6 +127,8 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           <TaskTabs
             tasks={(allTasks ?? []) as Task[]}
             initialTab={initialTab}
+            canUseCalendar={plan.isPremium}
+            calendarConnected={googleConnection.connected}
           />
         </section>
         {!plan.isPremium ? (

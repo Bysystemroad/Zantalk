@@ -13,6 +13,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteTask, markTaskDone, updateTask } from "@/app/actions";
+import { CalendarSyncButton } from "@/components/calendar-sync-button";
 import { formatDisplayDate, formatDisplayTime } from "@/lib/date";
 import { categories, type Task } from "@/lib/types";
 
@@ -23,9 +24,13 @@ function timeValue(time: string) {
 function PendingTaskCard({
   task,
   canUseFollowUp,
+  canUseCalendar,
+  calendarConnected,
 }: {
   task: Task;
   canUseFollowUp: boolean;
+  canUseCalendar: boolean;
+  calendarConnected: boolean;
 }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -243,6 +248,15 @@ function PendingTaskCard({
           Delete
         </button>
       </div>
+      <div className="mt-3">
+        <CalendarSyncButton
+          taskId={task.id}
+          initialSynced={Boolean(task.google_calendar_event_id)}
+          canUseCalendar={canUseCalendar}
+          calendarConnected={calendarConnected}
+          compact
+        />
+      </div>
     </article>
   );
 }
@@ -250,9 +264,13 @@ function PendingTaskCard({
 export function PendingTasksSection({
   tasks,
   canUseFollowUp = false,
+  canUseCalendar = false,
+  calendarConnected = false,
 }: {
   tasks: Task[];
   canUseFollowUp?: boolean;
+  canUseCalendar?: boolean;
+  calendarConnected?: boolean;
 }) {
   return (
     <section>
@@ -274,6 +292,8 @@ export function PendingTasksSection({
               key={task.id}
               task={task}
               canUseFollowUp={canUseFollowUp}
+              canUseCalendar={canUseCalendar}
+              calendarConnected={calendarConnected}
             />
           ))}
         </div>

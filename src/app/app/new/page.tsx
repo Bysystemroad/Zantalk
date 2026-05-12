@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
 import { NewTaskFlow } from "@/app/app/new/new-task-flow";
+import {
+  getGoogleConnectionStatus,
+  GOOGLE_CALENDAR_FEATURE,
+} from "@/lib/server/google-calendar";
 import { getOnboardingCompleted } from "@/lib/server/onboarding";
 import { canUseFeature } from "@/lib/server/plans";
 import { FOLLOW_UP_FEATURE } from "@/lib/server/follow-up";
@@ -22,6 +26,16 @@ export default async function NewTaskPage() {
   }
 
   const canUseFollowUp = await canUseFeature(user.id, FOLLOW_UP_FEATURE);
+  const canUseCalendar = await canUseFeature(user.id, GOOGLE_CALENDAR_FEATURE);
+  const googleConnection = canUseCalendar
+    ? await getGoogleConnectionStatus(user.id)
+    : { connected: false };
 
-  return <NewTaskFlow canUseFollowUp={canUseFollowUp} />;
+  return (
+    <NewTaskFlow
+      canUseFollowUp={canUseFollowUp}
+      canUseCalendar={canUseCalendar}
+      calendarConnected={googleConnection.connected}
+    />
+  );
 }

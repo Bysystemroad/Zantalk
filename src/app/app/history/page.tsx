@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { TaskCard } from "@/components/task-card";
+import {
+  getGoogleConnectionStatus,
+  GOOGLE_CALENDAR_FEATURE,
+} from "@/lib/server/google-calendar";
 import { getOnboardingCompleted } from "@/lib/server/onboarding";
+import { canUseFeature } from "@/lib/server/plans";
 import { createClient } from "@/lib/supabase/server";
 import type { Task } from "@/lib/types";
 
@@ -30,6 +35,10 @@ export default async function AppHistoryPage() {
     .order("task_time", { ascending: false });
 
   const tasks = (data ?? []) as Task[];
+  const canUseCalendar = await canUseFeature(user.id, GOOGLE_CALENDAR_FEATURE);
+  const googleConnection = canUseCalendar
+    ? await getGoogleConnectionStatus(user.id)
+    : { connected: false };
 
   return (
     <AppShell title="History">
@@ -44,7 +53,14 @@ export default async function AppHistoryPage() {
         </div>
         <div className="grid gap-3">
           {tasks.length ? (
-            tasks.map((task) => <TaskCard key={task.id} task={task} />)
+            tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                canUseCalendar={canUseCalendar}
+                calendarConnected={googleConnection.connected}
+              />
+            ))
           ) : (
             <div className="glass rounded-[8px] p-6 text-center text-sm text-slate-400">
               Done tasks will appear here.

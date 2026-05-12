@@ -15,6 +15,8 @@ create table if not exists public.tasks (
   follow_up_after_days int not null default 1,
   follow_up_suggestion text,
   follow_up_last_generated_at timestamptz,
+  google_calendar_event_id text,
+  google_calendar_synced_at timestamptz,
   created_at timestamptz not null default now()
 );
 

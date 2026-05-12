@@ -10,9 +10,13 @@ type Tab = "today" | "upcoming" | "done";
 export function TaskTabs({
   tasks,
   initialTab = "today",
+  canUseCalendar = false,
+  calendarConnected = false,
 }: {
   tasks: Task[];
   initialTab?: Tab;
+  canUseCalendar?: boolean;
+  calendarConnected?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const today = todayInBerlin();
@@ -53,7 +57,14 @@ export function TaskTabs({
 
       <div className="grid gap-3">
         {activeTasks.length ? (
-          activeTasks.map((task) => <TaskCard key={task.id} task={task} />)
+          activeTasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              canUseCalendar={canUseCalendar}
+              calendarConnected={calendarConnected}
+            />
+          ))
         ) : (
           <div className="glass rounded-[8px] p-6 text-center text-sm text-slate-400">
             No {tab} tasks.
