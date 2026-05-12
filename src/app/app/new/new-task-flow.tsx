@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Mic, Pencil, Save, Square } from "lucide-react";
+import { ArrowLeft, LockKeyhole, Mic, Pencil, Save, Square } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -83,7 +83,7 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Task saving failed.";
 }
 
-export function NewTaskFlow() {
+export function NewTaskFlow({ canUseFollowUp }: { canUseFollowUp: boolean }) {
   const router = useRouter();
   const recorderRef = useRef<MediaRecorder | null>(null);
   const mimeTypeRef = useRef("audio/webm");
@@ -100,6 +100,7 @@ export function NewTaskFlow() {
     useState<AiProcessingStep>("understood");
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState(false);
+  const [followUpEnabled, setFollowUpEnabled] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "recording" | "uploading" | "parsing" | "error"
   >("idle");
@@ -564,6 +565,69 @@ export function NewTaskFlow() {
                 className="bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-600"
               />
             </label>
+
+            <section className="rounded-[8px] border border-blue-200/15 bg-blue-300/[0.07] p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Follow-up AI
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    Generate a copy-ready follow-up if this task stays pending.
+                  </p>
+                </div>
+                {!canUseFollowUp ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-blue-100">
+                    <LockKeyhole size={13} />
+                    Premium
+                  </span>
+                ) : null}
+              </div>
+              {canUseFollowUp ? (
+                <div className="grid gap-3">
+                  <label className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-200">
+                    Enable per task
+                    <input
+                      type="checkbox"
+                      name="followUpEnabled"
+                      checked={followUpEnabled}
+                      onChange={(event) =>
+                        setFollowUpEnabled(event.target.checked)
+                      }
+                      className="h-5 w-5 accent-blue-200"
+                    />
+                  </label>
+                  <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Delay
+                    <select
+                      name="followUpAfterDays"
+                      defaultValue="3"
+                      disabled={!followUpEnabled}
+                      className="rounded-[8px] border border-white/10 bg-[#0b111d] px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none disabled:opacity-50"
+                    >
+                      <option value="1">1 day</option>
+                      <option value="3">3 days</option>
+                      <option value="5">5 days</option>
+                      <option value="7">7 days</option>
+                    </select>
+                  </label>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  <input type="hidden" name="followUpAfterDays" value="3" />
+                  <p className="text-sm text-slate-400">
+                    Premium users can enable follow-up suggestions for pending
+                    tasks.
+                  </p>
+                  <Link
+                    href="/pricing"
+                    className="tap-highlight inline-flex justify-center rounded-[8px] bg-white px-4 py-3 text-sm font-bold text-slate-950"
+                  >
+                    Unlock Premium
+                  </Link>
+                </div>
+              )}
+            </section>
           </div>
         </section>
 

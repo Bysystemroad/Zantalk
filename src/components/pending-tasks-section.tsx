@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarDays,
   Check,
+  LockKeyhole,
   Pencil,
   Save,
   Trash2,
@@ -19,7 +20,13 @@ function timeValue(time: string) {
   return time.slice(0, 5);
 }
 
-function PendingTaskCard({ task }: { task: Task }) {
+function PendingTaskCard({
+  task,
+  canUseFollowUp,
+}: {
+  task: Task;
+  canUseFollowUp: boolean;
+}) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isMutating, startTransition] = useTransition();
@@ -117,6 +124,42 @@ function PendingTaskCard({ task }: { task: Task }) {
               />
             </label>
           </div>
+          <section className="rounded-[8px] border border-blue-200/15 bg-blue-300/[0.07] p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-white">Follow-up AI</p>
+              {!canUseFollowUp ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-blue-100">
+                  <LockKeyhole size={13} />
+                  Premium
+                </span>
+              ) : null}
+            </div>
+            {canUseFollowUp ? (
+              <div className="grid gap-3">
+                <label className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-200">
+                  Enable suggestions
+                  <input
+                    type="checkbox"
+                    name="followUpEnabled"
+                    defaultChecked={task.follow_up_enabled}
+                    className="h-5 w-5 accent-blue-200"
+                  />
+                </label>
+                <select
+                  name="followUpAfterDays"
+                  defaultValue={task.follow_up_after_days ?? 3}
+                  className="rounded-[8px] border border-white/10 bg-[#0b111d] px-3 py-2.5 text-sm text-white outline-none"
+                >
+                  <option value="1">1 day</option>
+                  <option value="3">3 days</option>
+                  <option value="5">5 days</option>
+                  <option value="7">7 days</option>
+                </select>
+              </div>
+            ) : (
+              <input type="hidden" name="followUpAfterDays" value="3" />
+            )}
+          </section>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -162,6 +205,11 @@ function PendingTaskCard({ task }: { task: Task }) {
                 <Bell size={13} />
                 {task.reminder_minutes_before} min before
               </span>
+              {task.follow_up_enabled ? (
+                <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-2.5 py-1 text-blue-100">
+                  Follow-up after {task.follow_up_after_days}d
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -199,7 +247,13 @@ function PendingTaskCard({ task }: { task: Task }) {
   );
 }
 
-export function PendingTasksSection({ tasks }: { tasks: Task[] }) {
+export function PendingTasksSection({
+  tasks,
+  canUseFollowUp = false,
+}: {
+  tasks: Task[];
+  canUseFollowUp?: boolean;
+}) {
   return (
     <section>
       <div className="mb-3 flex items-end justify-between gap-3">
@@ -216,7 +270,11 @@ export function PendingTasksSection({ tasks }: { tasks: Task[] }) {
       {tasks.length > 0 ? (
         <div className="grid gap-3">
           {tasks.map((task) => (
-            <PendingTaskCard key={task.id} task={task} />
+            <PendingTaskCard
+              key={task.id}
+              task={task}
+              canUseFollowUp={canUseFollowUp}
+            />
           ))}
         </div>
       ) : (

@@ -12,6 +12,10 @@ export type Task = {
   reminder_minutes_before: number;
   original_transcript: string | null;
   status: TaskStatus;
+  follow_up_enabled: boolean;
+  follow_up_after_days: number;
+  follow_up_suggestion: string | null;
+  follow_up_last_generated_at: string | null;
   created_at: string;
 };
 

@@ -11,6 +11,10 @@ create table if not exists public.tasks (
   reminder_minutes_before int not null default 30,
   original_transcript text,
   status text not null default 'pending' check (status in ('pending', 'done')),
+  follow_up_enabled boolean not null default false,
+  follow_up_after_days int not null default 3,
+  follow_up_suggestion text,
+  follow_up_last_generated_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -43,3 +47,9 @@ using (auth.uid() = user_id);
 
 create index if not exists tasks_user_date_idx on public.tasks (user_id, task_date, task_time);
 create index if not exists tasks_user_status_idx on public.tasks (user_id, status);
+create index if not exists tasks_follow_up_idx on public.tasks (
+  user_id,
+  status,
+  follow_up_enabled,
+  created_at
+);

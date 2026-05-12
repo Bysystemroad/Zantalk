@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   canCreateVoiceTask,
+  canUseFeature,
   incrementDailyVoiceCount,
 } from "@/lib/server/plans";
+import { normalizeFollowUpDelay } from "@/lib/follow-up";
+import { FOLLOW_UP_FEATURE } from "@/lib/server/follow-up";
 import { setOnboardingCompleted } from "@/lib/server/onboarding";
 import { createClient } from "@/lib/supabase/server";
 import { categories, type ParsedTask, type TaskCategory } from "@/lib/types";
@@ -66,6 +69,9 @@ async function insertTaskFromForm(formData: FormData) {
 
   const originalTranscript =
     String(formData.get("originalTranscript") ?? "").trim() || null;
+  const followUpRequested = formData.get("followUpEnabled") === "on";
+  const followUpAllowed =
+    followUpRequested && (await canUseFeature(user.id, FOLLOW_UP_FEATURE));
   const isVoiceTask = Boolean(originalTranscript);
   if (isVoiceTask) {
     const quota = await canCreateVoiceTask(user.id);
@@ -85,6 +91,10 @@ async function insertTaskFromForm(formData: FormData) {
       formData.get("reminderMinutesBefore"),
     ),
     original_transcript: originalTranscript,
+    follow_up_enabled: followUpAllowed,
+    follow_up_after_days: normalizeFollowUpDelay(
+      formData.get("followUpAfterDays"),
+    ),
   });
 
   if (error) {
@@ -168,6 +178,9 @@ export async function updateTask(formData: FormData) {
   const category = categories.includes(categoryValue as TaskCategory)
     ? (categoryValue as TaskCategory)
     : "other";
+  const followUpRequested = formData.get("followUpEnabled") === "on";
+  const followUpAllowed =
+    followUpRequested && (await canUseFeature(user.id, FOLLOW_UP_FEATURE));
 
   if (!taskId || !title || !taskDate || !taskTime) {
     throw new Error("Task, title, date, and time are required.");
@@ -182,6 +195,10 @@ export async function updateTask(formData: FormData) {
       category,
       reminder_minutes_before: normalizeReminder(
         formData.get("reminderMinutesBefore"),
+      ),
+      follow_up_enabled: followUpAllowed,
+      follow_up_after_days: normalizeFollowUpDelay(
+        formData.get("followUpAfterDays"),
       ),
     })
     .eq("id", taskId)

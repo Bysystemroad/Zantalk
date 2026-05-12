@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { NewTaskFlow } from "@/app/app/new/new-task-flow";
 import { getOnboardingCompleted } from "@/lib/server/onboarding";
+import { canUseFeature } from "@/lib/server/plans";
+import { FOLLOW_UP_FEATURE } from "@/lib/server/follow-up";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function NewTaskPage() {
@@ -19,5 +21,7 @@ export default async function NewTaskPage() {
     redirect("/onboarding");
   }
 
-  return <NewTaskFlow />;
+  const canUseFollowUp = await canUseFeature(user.id, FOLLOW_UP_FEATURE);
+
+  return <NewTaskFlow canUseFollowUp={canUseFollowUp} />;
 }

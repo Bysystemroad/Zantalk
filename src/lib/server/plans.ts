@@ -7,6 +7,7 @@ export type PremiumFeature =
   | "ai-categorization"
   | "task-summaries"
   | "follow-up-suggestions"
+  | "follow_up_ai"
   | "smart-reminders"
   | string;
 

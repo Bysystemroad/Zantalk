@@ -39,6 +39,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 supabase/migrations/001_create_tasks.sql
 supabase/migrations/002_create_profiles.sql
 supabase/migrations/003_add_onboarding_to_profiles.sql
+supabase/migrations/004_add_follow_up_ai_to_tasks.sql
 ```
 
 5. Add these Supabase auth redirect URLs:
@@ -96,6 +97,24 @@ Zantalk uses `public.profiles` to track each user's plan and daily voice usage.
 ```
 
 Premium users are identified by `plan = 'premium'` and an empty or future `premium_until`.
+
+## Follow-up AI
+
+Follow-up AI is Premium-only and never sends emails or messages automatically. It only generates copy-ready follow-up text.
+
+Run `supabase/migrations/004_add_follow_up_ai_to_tasks.sql` to add:
+
+- `follow_up_enabled`
+- `follow_up_after_days`
+- `follow_up_suggestion`
+- `follow_up_last_generated_at`
+
+A task is eligible when it is `pending`, Follow-up AI is enabled, `created_at` is older than the selected delay, and no suggestion exists or the last suggestion was generated more than 24 hours ago.
+
+To test:
+
+- Free user: keep `profiles.plan = 'free'`; the confirmation screen and dashboard show locked upgrade UI.
+- Premium user: set `profiles.plan = 'premium'` and `premium_until` to `null` or a future timestamp; enable Follow-up AI on a task and age `created_at` beyond the selected delay.
 
 ## Future Payments
 

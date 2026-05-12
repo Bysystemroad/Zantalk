@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { FollowUpAISection } from "@/components/follow-up-ai-section";
 import { PendingTasksSection } from "@/components/pending-tasks-section";
 import { PremiumLock } from "@/components/premium-lock";
 import { DashboardClient } from "@/app/dashboard/dashboard-client";
 import { TaskTabs } from "@/app/tasks/task-tabs";
 import { todayInBerlin } from "@/lib/date";
+import { getEligibleFollowUpTasks } from "@/lib/server/follow-up";
 import { getOnboardingCompleted } from "@/lib/server/onboarding";
 import { getUserPlan } from "@/lib/server/plans";
 import { createClient } from "@/lib/supabase/server";
@@ -73,6 +75,9 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       .eq("status", "done"),
     getUserPlan(user.id),
   ]);
+  const followUpTasks = plan.isPremium
+    ? await getEligibleFollowUpTasks(user.id)
+    : [];
 
   return (
     <AppShell title="Zantalk">
@@ -82,7 +87,13 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           totalPending={pendingCount ?? 0}
           totalDone={doneCount ?? 0}
         />
-        <PendingTasksSection tasks={(pendingTasks ?? []) as Task[]} />
+        <PendingTasksSection
+          tasks={(pendingTasks ?? []) as Task[]}
+          canUseFollowUp={plan.isPremium}
+        />
+        {plan.isPremium ? (
+          <FollowUpAISection tasks={followUpTasks} />
+        ) : null}
         <section>
           <div className="mb-3 flex items-end justify-between">
             <h2 className="text-xl font-semibold text-white">Tasks</h2>
