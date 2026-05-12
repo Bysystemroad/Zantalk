@@ -30,9 +30,24 @@ type TokenResponse = {
 type GoogleEventResponse = {
   id?: string;
   error?: {
+    code?: number;
+    status?: string;
     message?: string;
   };
 };
+
+function logTokenResponse(context: string, body: TokenResponse | null) {
+  console.log(`[google-calendar] ${context} token response`, {
+    hasAccessToken: Boolean(body?.access_token),
+    accessTokenLength: body?.access_token?.length ?? 0,
+    hasRefreshToken: Boolean(body?.refresh_token),
+    refreshTokenLength: body?.refresh_token?.length ?? 0,
+    expiresIn: body?.expires_in ?? null,
+    scope: body?.scope ?? null,
+    error: body?.error ?? null,
+    errorDescription: body?.error_description ?? null,
+  });
+}
 
 function env(name: string) {
   const value = process.env[name];
@@ -105,15 +120,24 @@ function tokenExpiresAt(expiresIn = 3600) {
   return new Date(Date.now() + expiresIn * 1000).toISOString();
 }
 
-async function requestGoogleToken(params: Record<string, string>) {
+async function requestGoogleToken(
+  params: Record<string, string>,
+  context: "exchange" | "refresh",
+) {
   const response = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params),
   });
   const body = (await response.json().catch(() => null)) as TokenResponse | null;
+  logTokenResponse(context, body);
 
   if (!response.ok || !body?.access_token) {
+    console.error(`[google-calendar] ${context} token error`, {
+      status: response.status,
+      error: body?.error ?? null,
+      errorDescription: body?.error_description ?? null,
+    });
     throw new Error(
       body?.error_description ??
         body?.error ??
@@ -125,21 +149,34 @@ async function requestGoogleToken(params: Record<string, string>) {
 }
 
 export async function exchangeGoogleCode(userId: string, code: string) {
-  const tokens = await requestGoogleToken({
-    code,
-    client_id: env("GOOGLE_CLIENT_ID"),
-    client_secret: env("GOOGLE_CLIENT_SECRET"),
-    redirect_uri: googleRedirectUri(),
-    grant_type: "authorization_code",
-  });
+  const tokens = await requestGoogleToken(
+    {
+      code,
+      client_id: env("GOOGLE_CLIENT_ID"),
+      client_secret: env("GOOGLE_CLIENT_SECRET"),
+      redirect_uri: googleRedirectUri(),
+      grant_type: "authorization_code",
+    },
+    "exchange",
+  );
 
   const supabase = await createClient();
   const existing = await readGoogleConnection(userId);
+  const refreshTokenToStore = tokens.refresh_token ?? existing?.refresh_token;
+  console.log("[google-calendar] storing connection", {
+    userId,
+    hasNewRefreshToken: Boolean(tokens.refresh_token),
+    preservedExistingRefreshToken:
+      !tokens.refresh_token && Boolean(existing?.refresh_token),
+    hasRefreshTokenToStore: Boolean(refreshTokenToStore),
+    expiresAt: tokenExpiresAt(tokens.expires_in),
+    scope: tokens.scope ?? GOOGLE_SCOPE,
+  });
   const { error } = await supabase.from("google_connections").upsert(
     {
       user_id: userId,
       access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token ?? existing?.refresh_token,
+      refresh_token: refreshTokenToStore,
       expires_at: tokenExpiresAt(tokens.expires_in),
       scope: tokens.scope ?? GOOGLE_SCOPE,
     },
@@ -181,17 +218,28 @@ async function readGoogleConnection(userId: string) {
   return data as GoogleConnection | null;
 }
 
-async function refreshGoogleAccessToken(connection: GoogleConnection) {
+async function refreshGoogleAccessToken(
+  connection: GoogleConnection,
+): Promise<string> {
   if (!connection.refresh_token) {
+    console.error("[google-calendar] refresh skipped: missing refresh_token", {
+      userId: connection.user_id,
+      hasAccessToken: Boolean(connection.access_token),
+      expiresAt: connection.expires_at,
+      scope: connection.scope,
+    });
     throw new Error("Please reconnect Google Calendar");
   }
 
-  const tokens = await requestGoogleToken({
-    refresh_token: connection.refresh_token,
-    client_id: env("GOOGLE_CLIENT_ID"),
-    client_secret: env("GOOGLE_CLIENT_SECRET"),
-    grant_type: "refresh_token",
-  });
+  const tokens = await requestGoogleToken(
+    {
+      refresh_token: connection.refresh_token,
+      client_id: env("GOOGLE_CLIENT_ID"),
+      client_secret: env("GOOGLE_CLIENT_SECRET"),
+      grant_type: "refresh_token",
+    },
+    "refresh",
+  );
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -207,10 +255,10 @@ async function refreshGoogleAccessToken(connection: GoogleConnection) {
     throw new Error(error.message);
   }
 
-  return tokens.access_token;
+  return tokens.access_token!;
 }
 
-export async function getValidGoogleAccessToken(userId: string) {
+export async function getValidGoogleAccessToken(userId: string): Promise<string> {
   const connection = await readGoogleConnection(userId);
   if (!connection?.access_token) {
     throw new Error("Google Calendar is not connected");
@@ -219,6 +267,14 @@ export async function getValidGoogleAccessToken(userId: string) {
   const expiresAt = connection.expires_at
     ? new Date(connection.expires_at).getTime()
     : 0;
+  console.log("[google-calendar] access token expiry check", {
+    userId,
+    expiresAt: connection.expires_at,
+    expiresAtMs: expiresAt,
+    nowMs: Date.now(),
+    hasRefreshToken: Boolean(connection.refresh_token),
+    hasAccessToken: Boolean(connection.access_token),
+  });
   if (Number.isFinite(expiresAt) && expiresAt - Date.now() > 60_000) {
     return connection.access_token;
   }
@@ -250,26 +306,42 @@ function addOneIsoDay(date: string) {
 }
 
 export async function createGoogleCalendarEvent(userId: string, task: Task) {
-  const accessToken = await getValidGoogleAccessToken(userId);
+  const connection = await readGoogleConnection(userId);
+  if (!connection?.access_token) {
+    throw new Error("Google Calendar is not connected");
+  }
+
+  let accessToken = await getValidGoogleAccessToken(userId);
   const { start, end } = eventDateTime(task);
-  const response = await fetch(GOOGLE_EVENTS_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      summary: task.title,
-      description: "Created from Zantalk",
-      start: { dateTime: start, timeZone: "Europe/Rome" },
-      end: { dateTime: end, timeZone: "Europe/Rome" },
-    }),
-  });
-  const body = (await response.json().catch(() => null)) as
+  const payload = {
+    summary: task.title,
+    description: "Created from Zantalk",
+    start: { dateTime: start, timeZone: "Europe/Rome" },
+    end: { dateTime: end, timeZone: "Europe/Rome" },
+  };
+
+  let response = await insertGoogleEvent(accessToken, payload);
+  let body = (await response.json().catch(() => null)) as
     | GoogleEventResponse
     | null;
 
+  if ((response.status === 401 || response.status === 403) && connection) {
+    console.error("[google-calendar] event insert auth error, refreshing once", {
+      status: response.status,
+      error: body?.error ?? null,
+    });
+    accessToken = await refreshGoogleAccessToken(connection);
+    response = await insertGoogleEvent(accessToken, payload);
+    body = (await response.json().catch(() => null)) as
+      | GoogleEventResponse
+      | null;
+  }
+
   if (!response.ok || !body?.id) {
+    console.error("[google-calendar] event insert error", {
+      status: response.status,
+      error: body?.error ?? null,
+    });
     const message = body?.error?.message ?? "Could not create calendar event";
     if (response.status === 401 || response.status === 403) {
       throw new Error("Please reconnect Google Calendar");
@@ -279,4 +351,23 @@ export async function createGoogleCalendarEvent(userId: string, task: Task) {
   }
 
   return body.id;
+}
+
+function insertGoogleEvent(
+  accessToken: string,
+  payload: {
+    summary: string;
+    description: string;
+    start: { dateTime: string; timeZone: string };
+    end: { dateTime: string; timeZone: string };
+  },
+) {
+  return fetch(GOOGLE_EVENTS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 }
