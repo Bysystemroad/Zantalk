@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { normalizeReminderMinutes } from "@/lib/reminders";
 import {
   canCreateVoiceTask,
   canUseFeature,
@@ -14,17 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { categories, type ParsedTask, type TaskCategory } from "@/lib/types";
 
 function normalizeReminder(value: FormDataEntryValue | null) {
-  const raw = String(value ?? "").trim();
-  if (!raw) {
-    return 30;
-  }
-
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) {
-    return 30;
-  }
-
-  return Math.max(0, Math.min(1440, Math.round(parsed)));
+  return normalizeReminderMinutes(value);
 }
 
 export async function logout() {

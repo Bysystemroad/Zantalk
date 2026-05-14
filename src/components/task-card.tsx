@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Clock, Trash2, UserRound } from "lucide-react";
+import { Bell, Check, Clock, Trash2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { deleteTask, markTaskDone } from "@/app/actions";
 import { CalendarSyncButton } from "@/components/calendar-sync-button";
 import { formatDisplayDate, formatDisplayTime } from "@/lib/date";
+import { formatReminderBefore } from "@/lib/reminders";
 import type { Task } from "@/lib/types";
 
 export function TaskCard({
@@ -67,6 +68,10 @@ export function TaskCard({
             ) : null}
             <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-2.5 py-1 capitalize text-blue-100">
               {task.category}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1">
+              <Bell size={13} />
+              {formatReminderBefore(task.reminder_minutes_before)}
             </span>
           </div>
         </div>

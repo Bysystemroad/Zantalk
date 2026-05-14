@@ -318,6 +318,15 @@ export async function createGoogleCalendarEvent(userId: string, task: Task) {
     description: "Created from Zantalk",
     start: { dateTime: start, timeZone: "Europe/Rome" },
     end: { dateTime: end, timeZone: "Europe/Rome" },
+    reminders: {
+      useDefault: false,
+      overrides: [
+        {
+          method: "popup" as const,
+          minutes: task.reminder_minutes_before,
+        },
+      ],
+    },
   };
 
   let response = await insertGoogleEvent(accessToken, payload);
@@ -360,6 +369,10 @@ function insertGoogleEvent(
     description: string;
     start: { dateTime: string; timeZone: string };
     end: { dateTime: string; timeZone: string };
+    reminders: {
+      useDefault: boolean;
+      overrides: Array<{ method: "popup"; minutes: number }>;
+    };
   },
 ) {
   return fetch(GOOGLE_EVENTS_URL, {

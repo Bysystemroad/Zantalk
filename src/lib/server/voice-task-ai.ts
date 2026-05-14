@@ -1,6 +1,11 @@
 import * as chrono from "chrono-node";
 import { todayInBerlin } from "@/lib/date";
 import { getOpenAIClient } from "@/lib/openai";
+import {
+  DEFAULT_REMINDER_MINUTES,
+  normalizeReminderMinutes,
+  parseReminderMinutesFromText,
+} from "@/lib/reminders";
 import type { ParsedTask } from "@/lib/types";
 
 const taskSchema = {
@@ -33,7 +38,6 @@ type ChronoDateTime = {
   matchedText: string;
 };
 
-const DEFAULT_REMINDER_MINUTES = 30;
 const TRANSCRIPTION_PROMPT =
   "This is a voice-to-task productivity app. The user may speak in English, Turkish, or Italian. Preserve names, task details, dates, times, and business terms accurately. Common examples: Cem, Canberk, Valeria, client, invoice, offer, meeting, follow-up, email, reminder, domani, venerdì, bugün, yarın.";
 
@@ -146,7 +150,7 @@ export function normalizeParsedTask(
   const normalizedReminder =
     reminder === 0 && options.allowZeroReminder
       ? 0
-      : Math.max(1, Math.min(1440, reminder || DEFAULT_REMINDER_MINUTES));
+      : normalizeReminderMinutes(reminder);
 
   return {
     title: task.title?.trim() || "Untitled task",
@@ -193,6 +197,7 @@ export async function parseTaskTranscript(transcript: string) {
 
   const chronoDateTime = parseChronoDateTime(cleanTranscript);
   const allowZeroReminder = explicitlyAllowsZeroReminder(cleanTranscript);
+  const parsedReminder = parseReminderMinutesFromText(cleanTranscript);
   const openai = getOpenAIClient();
   try {
     const response = await openai.responses.create({
@@ -201,7 +206,7 @@ export async function parseTaskTranscript(transcript: string) {
         {
           role: "system",
           content:
-            "You parse spoken reminders into task JSON. Support English, Turkish, and Italian. Default missing date to the supplied today value. Default missing time to 10:00. Default missing reminderMinutesBefore to 30. Do not return 0 for reminderMinutesBefore unless the user explicitly says no reminder, no notification, zero minutes, or equivalent. Use Europe/Berlin for relative dates. Return only schema-valid JSON.",
+            "You parse spoken reminders into task JSON. Support English, Turkish, and Italian. Default missing date to the supplied today value. Default missing time to 10:00. Default missing reminderMinutesBefore to 30. Always convert reminders to minutes: 15 minutes before = 15, 30 minutes before = 30, 1 hour before = 60, 2 hours before = 120, 1 day before/the day before/one day before/bir gün önce/un giorno prima = 1440, 2 days before = 2880. Handle phrases like remind me 1 hour before, remind me one day before, bir gün önce hatırlat, 1 saat önce hatırlat, un giorno prima, un'ora prima. Do not return 0 for reminderMinutesBefore unless the user explicitly says no reminder, no notification, zero minutes, or equivalent. Use Europe/Berlin for relative dates. Return only schema-valid JSON.",
         },
         {
           role: "user",
@@ -228,13 +233,17 @@ export async function parseTaskTranscript(transcript: string) {
     );
 
     if (!chronoDateTime) {
-      return parsed;
+      return {
+        ...parsed,
+        reminderMinutesBefore: parsedReminder ?? parsed.reminderMinutesBefore,
+      };
     }
 
     return {
       ...parsed,
       date: chronoDateTime.date,
       time: chronoDateTime.time,
+      reminderMinutesBefore: parsedReminder ?? parsed.reminderMinutesBefore,
     };
   } catch (error) {
     if (!chronoDateTime) {
@@ -248,7 +257,7 @@ export async function parseTaskTranscript(transcript: string) {
         time: chronoDateTime.time,
         person: "",
         category: "other",
-        reminderMinutesBefore: DEFAULT_REMINDER_MINUTES,
+        reminderMinutesBefore: parsedReminder ?? DEFAULT_REMINDER_MINUTES,
       },
       {
         allowZeroReminder,

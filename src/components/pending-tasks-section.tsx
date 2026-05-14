@@ -15,6 +15,7 @@ import { useState, useTransition } from "react";
 import { deleteTask, markTaskDone, updateTask } from "@/app/actions";
 import { CalendarSyncButton } from "@/components/calendar-sync-button";
 import { formatDisplayDate, formatDisplayTime } from "@/lib/date";
+import { formatReminderBefore, reminderOptions } from "@/lib/reminders";
 import { categories, type Task } from "@/lib/types";
 
 function timeValue(time: string) {
@@ -119,14 +120,17 @@ function PendingTaskCard({
             </label>
             <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               Reminder
-              <input
-                min={0}
-                max={1440}
-                type="number"
+              <select
                 name="reminderMinutesBefore"
                 defaultValue={task.reminder_minutes_before}
                 className="rounded-[8px] border border-white/10 bg-black/30 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none transition focus:border-blue-300/50"
-              />
+              >
+                {reminderOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           <section className="rounded-[8px] border border-blue-200/15 bg-blue-300/[0.07] p-3">
@@ -208,7 +212,7 @@ function PendingTaskCard({
               </span>
               <span className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1">
                 <Bell size={13} />
-                {task.reminder_minutes_before} min before
+                {formatReminderBefore(task.reminder_minutes_before)}
               </span>
               {task.follow_up_enabled ? (
                 <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-2.5 py-1 text-blue-100">

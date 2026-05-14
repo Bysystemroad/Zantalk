@@ -11,6 +11,7 @@ import {
   type AiProcessingStep,
   TaskCreatedState,
 } from "@/components/voice-ai-states";
+import { formatReminderBefore, reminderOptions } from "@/lib/reminders";
 import { categories, type ParsedTask } from "@/lib/types";
 
 type PendingTask = {
@@ -38,10 +39,6 @@ const FREE_LIMIT_MESSAGE =
 
 function displayCategory(category: string) {
   return category.charAt(0).toUpperCase() + category.slice(1);
-}
-
-function displayReminder(value: number | undefined) {
-  return value && value > 0 ? value : 30;
 }
 
 function readPendingTask() {
@@ -562,25 +559,28 @@ export function NewTaskFlow({
               <label className="grid gap-2 rounded-[8px] border border-white/10 bg-white/[0.035] p-4 text-sm font-medium text-slate-400">
                 Reminder:
                 {editing ? (
-                  <input
+                  <select
                     name="reminderMinutesBefore"
-                    type="number"
-                    min={0}
-                    max={1440}
-                    defaultValue={displayReminder(
-                      pending.task.reminderMinutesBefore,
-                    )}
-                    className="min-w-0 bg-transparent text-base font-semibold text-white outline-none"
-                  />
+                    defaultValue={pending.task.reminderMinutesBefore || 30}
+                    className="min-w-0 bg-[#0b111d] text-base font-semibold text-white outline-none"
+                  >
+                    {reminderOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <>
                     <input
                       type="hidden"
                       name="reminderMinutesBefore"
-                      value={displayReminder(pending.task.reminderMinutesBefore)}
+                      value={pending.task.reminderMinutesBefore || 30}
                     />
                     <span className="text-base font-semibold text-white">
-                      {displayReminder(pending.task.reminderMinutesBefore)} min before
+                      {formatReminderBefore(
+                        pending.task.reminderMinutesBefore,
+                      )}
                     </span>
                   </>
                 )}

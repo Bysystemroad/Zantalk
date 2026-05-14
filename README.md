@@ -83,6 +83,7 @@ Deploy as a standard Next.js project and add the same environment variables in V
 - First-time onboarding lives at `/onboarding` and is shown until `profiles.onboarding_completed` is true.
 - Missing parsed dates default to today in Europe/Berlin.
 - Missing parsed times default to `10:00`.
+- Reminder phrases are normalized into minutes, including minutes, hours, and days.
 - Local reminders use the browser notification permission and service worker display while the installed/open app can schedule timers. Guaranteed background push delivery is intentionally outside this MVP.
 
 ## Freemium Limits
@@ -125,6 +126,7 @@ To test:
 ## Google Calendar Sync
 
 Google Calendar Sync is Premium-only and MVP-scoped to one-way event creation from Zantalk tasks. It does not update, delete, or two-way sync calendar events.
+Google events use the same `reminder_minutes_before` value as Zantalk with a popup reminder override.
 
 Run `supabase/migrations/006_add_google_calendar_sync.sql` to create `google_connections` and add task sync columns. Tokens are stored server-side in `google_connections` with RLS enabled and are never sent to the frontend.
 
@@ -147,6 +149,15 @@ To test:
 
 - Free user: keep `profiles.plan = 'free'`; Google Calendar shows locked Premium UI.
 - Premium user: set `profiles.plan = 'premium'`; open `/app/settings`, connect Google Calendar, then use “Add to Google Calendar” on a task.
+
+## Reminder Parsing Tests
+
+Manual voice phrases to verify:
+
+- “Tomorrow at 3 call Cem, remind me one day before”
+- “Next Monday at 15:00 call my mother, remind me 2 hours before”
+- “Domani alle 10 manda una mail a Valeria, ricordami un giorno prima”
+- “Yarın saat 3’te Cem’i ara, bir gün önce hatırlat”
 
 ## Future Payments
 
