@@ -602,10 +602,10 @@ export function NewTaskFlow({
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-white">
-                    Follow-up AI
+                    Smart Follow-up Engine
                   </p>
                   <p className="mt-1 text-xs leading-5 text-slate-400">
-                    Generate a copy-ready follow-up if this task stays pending.
+                    Free reminds you. Premium helps you act when this task is due or still pending.
                   </p>
                 </div>
                 {!canUseFollowUp ? (
@@ -648,8 +648,7 @@ export function NewTaskFlow({
                 <div className="grid gap-3">
                   <input type="hidden" name="followUpAfterDays" value="1" />
                   <p className="text-sm text-slate-400">
-                    Premium users can enable follow-up suggestions for pending
-                    tasks.
+                    Smart Follow-up Engine is a Premium feature.
                   </p>
                   <Link
                     href="/pricing"

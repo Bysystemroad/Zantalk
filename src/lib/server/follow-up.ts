@@ -1,5 +1,9 @@
 import { getOpenAIClient } from "@/lib/openai";
-import { isFollowUpEligible } from "@/lib/follow-up";
+import {
+  getSmartFollowUpContext,
+  isFollowUpEligible,
+  type SmartFollowUpContext,
+} from "@/lib/follow-up";
 import { canUseFeature } from "@/lib/server/plans";
 import { createClient } from "@/lib/supabase/server";
 import type { Task } from "@/lib/types";
@@ -28,7 +32,27 @@ export async function getEligibleFollowUpTasks(userId: string) {
   return ((data ?? []) as Task[]).filter(isFollowUpEligible);
 }
 
-export async function generateFollowUpSuggestion(task: Task) {
+function contextInstruction(context: SmartFollowUpContext) {
+  switch (context) {
+    case "reminder_due":
+      return "The task reminder is due now. Suggest a short next action or message the user can send immediately.";
+    case "overdue_same_day":
+      return "The task is overdue but still on the same day. Use a short, helpful reminder tone.";
+    case "overdue_1_day":
+      return "The task is about 1 day overdue. Use a polite follow-up tone.";
+    case "overdue_3_days_plus":
+      return "The task is 3 or more days overdue. Use a stronger but still professional follow-up tone.";
+  }
+}
+
+export async function generateFollowUpSuggestion(
+  task: Task,
+  context = getSmartFollowUpContext(task),
+) {
+  if (!context) {
+    throw new Error("Task is not eligible for Smart Follow-up Engine yet.");
+  }
+
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
     model: "gpt-4o-mini",
@@ -36,14 +60,17 @@ export async function generateFollowUpSuggestion(task: Task) {
       {
         role: "system",
         content:
-          "Generate a short, polite follow-up message for this task. The message should be professional, clear, and ready to copy. Do not mention Zantalk. Return only the message text.",
+          "Generate a short, practical follow-up or action suggestion for this task. Use the task title, date/time, overdue status, context, and optional person/category. Return only the message text. Keep it professional, clear, and copy-ready. Do not mention Zantalk. Do not imply anything has been sent automatically.",
       },
       {
         role: "user",
         content: [
+          `Context: ${context}`,
+          `Context instruction: ${contextInstruction(context)}`,
           `Task title: ${task.title}`,
           `Task date: ${task.task_date}`,
           `Task time: ${task.task_time}`,
+          `Overdue status: ${context}`,
           task.person ? `Person: ${task.person}` : null,
           `Category: ${task.category}`,
           task.original_transcript

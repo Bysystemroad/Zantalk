@@ -135,7 +135,9 @@ function PendingTaskCard({
           </div>
           <section className="rounded-[8px] border border-blue-200/15 bg-blue-300/[0.07] p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-white">Follow-up AI</p>
+              <p className="text-sm font-semibold text-white">
+                Smart Follow-up Engine
+              </p>
               {!canUseFollowUp ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-blue-100">
                   <LockKeyhole size={13} />
@@ -146,7 +148,7 @@ function PendingTaskCard({
             {canUseFollowUp ? (
               <div className="grid gap-3">
                 <label className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-200">
-                  Enable suggestions
+                  Enable action suggestions
                   <input
                     type="checkbox"
                     name="followUpEnabled"

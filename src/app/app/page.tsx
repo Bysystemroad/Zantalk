@@ -157,8 +157,8 @@ export default async function AppPage({ searchParams }: AppPageProps) {
                 description="Turn your day into a clean AI summary of what matters next."
               />
               <PremiumLock
-                title="Follow-up AI Suggestions"
-                description="Get suggested next steps after meetings, offers, invoices, and emails."
+                title="Smart Follow-up Engine"
+                description="Free reminds you. Premium helps you act with suggested next messages and actions."
               />
               <PremiumLock
                 title="Smart Reminders"

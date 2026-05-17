@@ -3,7 +3,11 @@ import {
   FOLLOW_UP_FEATURE,
   generateFollowUpSuggestion,
 } from "@/lib/server/follow-up";
-import { isFollowUpEligible } from "@/lib/follow-up";
+import {
+  getSmartFollowUpContext,
+  isFollowUpEligible,
+  type SmartFollowUpContext,
+} from "@/lib/follow-up";
 import { canUseFeature } from "@/lib/server/plans";
 import { getOpenAIKeyError } from "@/lib/server/voice-task-ai";
 import { createClient } from "@/lib/supabase/server";
@@ -38,6 +42,7 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => null)) as {
       taskId?: string;
+      context?: SmartFollowUpContext;
     } | null;
     const taskId = body?.taskId?.trim();
     if (!taskId) {
@@ -58,12 +63,20 @@ export async function POST(request: Request) {
     const task = data as Task;
     if (!isFollowUpEligible(task)) {
       return NextResponse.json(
-        { error: "Task is not eligible for follow-up yet" },
+        { error: "Task is not eligible for Smart Follow-up Engine yet" },
         { status: 400 },
       );
     }
 
-    const suggestion = await generateFollowUpSuggestion(task);
+    const context = getSmartFollowUpContext(task);
+    if (!context || (body?.context && body.context !== context)) {
+      return NextResponse.json(
+        { error: "Smart follow-up context is no longer current" },
+        { status: 400 },
+      );
+    }
+
+    const suggestion = await generateFollowUpSuggestion(task, context);
     const generatedAt = new Date().toISOString();
     const { error: updateError } = await supabase
       .from("tasks")
@@ -80,11 +93,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       suggestion,
+      context,
       followUpLastGeneratedAt: generatedAt,
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Follow-up generation failed";
+      error instanceof Error
+        ? error.message
+        : "Smart Follow-up Engine generation failed";
     console.error("[/api/follow-up/generate] error:", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }

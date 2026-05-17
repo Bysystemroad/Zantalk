@@ -17,11 +17,11 @@ const freeFeatures = [
 
 const premiumFeatures = [
   "Unlimited voice tasks",
-  "Google Calendar sync",
-  "AI categorization",
-  "Task summaries",
-  "Follow-up AI suggestions",
-  "Smart reminders",
+  "Google Calendar Sync",
+  "Smart Follow-up Engine",
+  "AI Categorization",
+  "Task Summaries",
+  "Smart Reminders",
 ];
 
 export default function PricingPage() {
@@ -46,8 +46,8 @@ export default function PricingPage() {
           Start free. Upgrade when voice becomes your workflow.
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-300">
-          Free keeps Zantalk useful every day. Premium removes limits and unlocks
-          smarter AI productivity features.
+          Free reminds you. Premium helps you act with unlimited capture,
+          calendar sync, and Smart Follow-up Engine.
         </p>
       </section>
 
@@ -94,6 +94,7 @@ export default function PricingPage() {
                 <h2 className="text-2xl font-semibold text-white">Premium</h2>
                 <p className="mt-2 text-sm text-slate-300">
                   For unlimited voice capture and smarter follow-through.
+                  Free reminds you. Premium helps you act.
                 </p>
               </div>
               <div className="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-950">

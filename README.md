@@ -104,9 +104,11 @@ Zantalk uses `public.profiles` to track each user's plan and daily voice usage.
 
 Premium users are identified by `plan = 'premium'` and an empty or future `premium_until`.
 
-## Follow-up AI
+## Smart Follow-up Engine
 
-Follow-up AI is Premium-only and never sends emails or messages automatically. It only generates copy-ready follow-up text.
+Smart Follow-up Engine is Premium-only and never sends emails or messages automatically. It only generates copy-ready follow-up or action text.
+
+Core positioning: Free reminds you. Premium helps you act.
 
 Run `supabase/migrations/004_add_follow_up_ai_to_tasks.sql` to add:
 
@@ -115,13 +117,22 @@ Run `supabase/migrations/004_add_follow_up_ai_to_tasks.sql` to add:
 - `follow_up_suggestion`
 - `follow_up_last_generated_at`
 
-A task is eligible when it is `pending`, Follow-up AI is enabled, `created_at` is older than the selected delay, and no suggestion exists or the last suggestion was generated more than 24 hours ago.
+A task can surface in Smart Follow-up Engine when it is `pending`, the feature is enabled, and one of these contexts applies:
+
+- `reminder_due`: the task reminder time has arrived.
+- `overdue_same_day`: the task is overdue but still on the same day.
+- `overdue_1_day`: the task is about one day overdue.
+- `overdue_3_days_plus`: the task is three or more days overdue.
+
+The engine adapts tone by context: short helpful reminder, polite follow-up, or stronger but professional follow-up. It never sends anything automatically.
+
+Generated suggestions can be copied, regenerated, or followed by marking the task done. A suggestion is generated only if no suggestion exists or the last suggestion was generated more than 24 hours ago.
 The default follow-up delay is 1 day when no value is selected.
 
 To test:
 
 - Free user: keep `profiles.plan = 'free'`; the confirmation screen and dashboard show locked upgrade UI.
-- Premium user: set `profiles.plan = 'premium'` and `premium_until` to `null` or a future timestamp; enable Follow-up AI on a task and age `created_at` beyond the selected delay.
+- Premium user: set `profiles.plan = 'premium'` and `premium_until` to `null` or a future timestamp; enable Smart Follow-up Engine on a task and test reminder-time or overdue pending task suggestions.
 
 ## Google Calendar Sync
 
